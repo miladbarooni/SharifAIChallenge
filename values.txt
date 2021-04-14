@@ -1,0 +1,6 @@
+# print(self.game.healtcurrentResourcehKargar)
+    # print(self.game.mapWidth)
+    # print(self.game.mapHeight)
+    # print(self.game.viewDistance)
+    # print(self.game.ant.getNeightbourCell(self.game.ant.getLocationCell().x, self.game.ant.getLocationCell().y))
+    # print(self.game.chatBox.get)
