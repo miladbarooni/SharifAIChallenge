@@ -13,9 +13,11 @@ class AI:
         self.message: str = None
         self.direction: int = None
         self.value: int = None
-        self.memory: list = list()
+        self.map = list()
         self.neighbours: list = list()
         self.type: str = ""
+        self.init = True
+        self.state = "explore"
 
     """
     Return a tuple with this form:
@@ -26,16 +28,22 @@ class AI:
 # java -jar server-v1.2.8.jar --run-manually
 
     def turn(self) -> (str, int, int):
+        if self.init:
+            self.map: list = [[0 for _ in range(self.game.mapHeight)] for _ in range(self.game.mapWidth)]
+            self.init = False
         self.update_neighbour()
-        print(self.game.mapHeight)
-        print(self.game.mapWidth)
+        print([neighbour['element'] for neighbour in self.neighbours])
+        print ("-----------------")
+        self.update_map()
+        
         if self.game.antType == 1:
             self.worker()
+
         elif self.game.antType == 0:
             self.soldier()
         self.message = ""
-        self.value = random.randint(1, 10)
-        self.direction = random.choice(list(Direction)).value
+        # self.value = random.randint(1, 10)
+        # self.direction = random.choice(list(Direction)).value
         # self.direction = Direction.UP.value
         return self.message, self.value, self.direction
 
@@ -46,6 +54,11 @@ class AI:
         else:
             self.direction = random.choice(list(Direction)).value   
         print("---------------------------")
+
+
+    def update_map(self):
+        for neighbour in self.neighbours:
+            self.map[neighbour['x']][neighbour['y']] = neighbour
 
     def update_neighbour(self):
         self.neighbours = list()
@@ -58,12 +71,15 @@ class AI:
                         'y': neigbour.y,
                         'type': neigbour.type,
                         'rtype': neigbour.resource_type,
-                        'rvalue': neigbour.resource_value
+                        'rvalue': neigbour.resource_value,
+                        'element': neigbour.ants
                         })
-    
+    # def gene    
+    def random_walk(self):
+        pass
+        #
     def go_to_cell(self, x, y):
     
-        print(self.game.ant.currentX.)
         print(self.neighbours)
 
     def soldier(self):
