@@ -71,11 +71,15 @@ class AI:
                 print(self.message)
             resource_cell = self.find_nearest_resource(required_resource)
             print("nearest_resource:", resource_cell)
-            shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), resource_cell)
-            print("shortest path:", shortest_path)
+            first_node_shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), resource_cell)[-1]
+            self.direction = self.find_direction_from_cell(first_node_shortest_path)
+            there_is_nothing_around = False
+        if self.game.ant.currentResource == 5:
+            first_node_shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0,0), self.map[self.game.baseX][self.game.baseY])
+            self.direction = self.find_direction_from_cell(first_node_shortest_path)
         if there_is_nothing_around:
             self.random_walk()
-        self.random_walk()
+        
 
     def random_walk(self):
         self.direction = random.choice(list(Direction)).value
@@ -103,7 +107,7 @@ class AI:
         best_dist = self.game.mapHeight + self.game.mapWidth + 1
         best_result = None
         for neighbour in self.neighbours:
-            if neighbour.resource_type == resource_type and self.manhattan_distance(
+            if neighbour.resource_type != 2 and self.manhattan_distance(
                     self.game.ant.getNeightbourCell(0, 0), neighbour) < best_dist:
                 best_result = neighbour
                 best_dist = self.manhattan_distance(self.game.ant.getNeightbourCell(0, 0), neighbour)
@@ -111,19 +115,31 @@ class AI:
 
     def adjacent_neighbour_finder_map(self, cell):
         up, down, left, right = list(), list(), list(), list()
-        if self.map[cell.x + 1][cell.y].type:
-            down = self.map[cell.x + 1][cell.y]
-        if self.map[cell.x - 1][cell.y].type == 1:
-            up = self.map[cell.x - 1][cell.y]
-        if self.map[cell.x][cell.y + 1].type:
-            right = self.map[cell.x][cell.y + 1]
-        if self.map[cell.x][cell.y - 1].type:
-            left = self.map[cell.x][cell.y - 1]
+        if self.map[(cell.x + 1) % self.game.mapWidth][cell.y].type:
+            down = self.map[(cell.x + 1) % self.game.mapWidth][cell.y]
+        if self.map[(cell.x - 1) % self.game.mapWidth][cell.y].type == 1:
+            up = self.map[(cell.x - 1) % self.game.mapWidth][cell.y]
+        if self.map[cell.x][(cell.y + 1) % self.game.mapHeight].type:
+            right = self.map[cell.x][(cell.y + 1)%self.game.mapHeight]
+        if self.map[cell.x][(cell.y - 1)%self.game.mapHeight].type:
+            left = self.map[cell.x][(cell.y - 1) % self.game.mapHeight]
         return [direction for direction in [up, down, right, left] if direction != []]
 
     def what_resource_is_required(self):
         pass
-
+    
+    def find_direction_from_cell(self, cell):
+        current_x = self.game.ant.currentX
+        current_y = self.game.ant.currentY
+        if cell.x == current_x - 1 and cell.y == current_y:
+            return Direction.UP.value
+        elif cell.x == current_x +1 and cell.y == current_y:
+            return Direction.DOWN.value
+        elif cell.x == current_x and cell.y == current_y - 1:
+            return Direction.LEFT.value
+        elif cell.x == current_x and cell.y == current_y + 1:
+            return Direction.RIGHT.value
+        
     def neighbour_with_cell_type(self, cell_type):
         return_list = list()
         for neighbour in self.neighbours:
