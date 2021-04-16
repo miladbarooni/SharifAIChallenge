@@ -30,7 +30,7 @@ class AI:
     def turn(self) -> (str, int, int):
         # initial the map
         if self.init:
-            # print (self.game.baseX, self.game.baseY)
+            print (self.game.baseX, self.game.baseY)
             self.map: list = [[0 for _ in range(self.game.mapHeight)] for _ in range(self.game.mapWidth)]
             self.init = False
         # update all neghbours
@@ -56,7 +56,6 @@ class AI:
                 if abs(i) + abs(j) <= self.game.viewDistance:
                     neighbour = self.game.ant.getNeightbourCell(i, j)
                     self.neighbours.append(neighbour)
-                    neighbour.type
                     # self.neighbours.append({
                     #     'x': neighbour.x,
                     #     'y': neighbour.y,
@@ -79,21 +78,27 @@ class AI:
         if base_neighbour != []:
             # print ('base_x:{base_neghbour[0]['x']}'
             if base_neighbour[0].x != self.game.baseX and base_neighbour[0].y != self.game.baseY:
-                self.message = f'I see the base at({base_neighbour[0].x},{base_neighbour[0].y})'
+                self.message = f'I see the enemy base at({base_neighbour[0].x},{base_neighbour[0].y})'
                 print (self.message)
             # can see the base you have to report it with high priority ask for attack
         empty_neighbours = self.neighbour_with_cell_type(CellType.EMPTY.value)
         # print (empty_neighbours)
         if empty_neighbours != []: 
             required_resource = self.what_resource_is_required()
+            required_resource = 1
             for neighbour in empty_neighbours:
                 if neighbour.resource_type == 0:
                     self.message = f'Bread({neighbour.resource_value}) at ({neighbour.x},{neighbour.y})'
                 elif neighbour.resource_type == 1:
                     self.message = f'Grass({neighbour.resource_value}) at ({neighbour.x},{neighbour.y})'  
-                
                 print (self.message)
-            self.message = f'i see a empty resource'
+            resource_cell = self.find_nearest_resource(required_resource)
+            print ("nearest_resource:", resource_cell)
+            shortest_path = self.find_shortest_path (self.game.ant.getNeightbourCell(0,0), resource_cell)
+            print ("shortest path:", shortest_path)
+            
+
+
         if there_is_nothinge_around:
             self.random_walk()
         self.random_walk()
@@ -113,23 +118,34 @@ class AI:
             if front == dest:
                 return path
             elif front not in visited:
-                for adjacent__neighbour in self.adjacent__neighbour_finder_map(front):
+                for adjacent__neighbour in self.adjacent_neighbour_finder_map(front):
                     newPath = list(path)
                     newPath.append(adjacent__neighbour)
                     queue.append(newPath)
                 visited.add(front)
-            return None
+        return None
         
-    
+    def find_nearest_resource(self, resource_type):
+        best_dist = self.game.mapHeight + self.game.mapWidth +1 
+        best_resutl = None
+        for neighbour in self.neighbours:
+            if neighbour.resource_type == resource_type and self.manhattan_distance(self.game.ant.getNeightbourCell(0,0), neighbour) < best_dist:
+                best_resutl = neighbour
+                best_dist = self.manhattan_distance(self.game.ant.getNeightbourCell(0,0), neighbour)
+        return neighbour
+
+    def manhattan_distance (self, source, dest):
+        return abs(source.x - dest.x) + abs (source.y - dest.y)
 
     def adjacent_neighbour_finder_map(self, cell):
         up = list()
         down = list()
         left = list()
         right = list()
+        print (self.map)
         if self.map[cell.x+1][cell.y].type:
             down = self.map[cell.x+1][cell.y]
-        if self.map[cell.x-1][cell.y].type:
+        if self.map[cell.x-1][cell.y].type == 1:
             up = self.map[cell.x-1][cell.y]
         if self.map[cell.x][cell.y+1].type:
             right = self.map[cell.x][cell.y+1]
