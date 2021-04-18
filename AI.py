@@ -1,12 +1,13 @@
 from Model import *
 import random
-import json
-from typing import *
+
 
 class AI:
-    map = list()
-    init = True
-    state = ""
+    map: list = list()
+    init: bool = True
+    state: str = ""
+    our_base: Cell = None
+
     def __init__(self):
         # Current Game State
         self.game: Game = None
@@ -17,13 +18,11 @@ class AI:
         self.neighbours: list = list()
         self.type: str = ""
 
-    
-
     def turn(self) -> (str, int, int):
         # initial the map
-
         if AI.init:
-            AI.map: list = [[0 for _ in range(self.game.mapHeight)] for _ in range(self.game.mapWidth)]
+            AI.map = [[0 for _ in range(self.game.mapHeight)] for _ in range(self.game.mapWidth)]
+            AI.our_base = self.game.ant.getNeightbourCell(0, 0)
             AI.init = False
         # update all neighbours
         self.update_neighbour()
@@ -31,8 +30,8 @@ class AI:
         self.update_map()
         if self.game.antType == 1:
             self.worker()
-        elif self.game.antType == 0:
-            self.soldier()
+        # elif self.game.antType == 0:
+        #     self.soldier()
         self.message = ""
         self.value = 1
         return self.message, self.value, self.direction
@@ -40,56 +39,41 @@ class AI:
     def update_neighbour(self):
         self.neighbours = list()
         for row_counter in range(-1 * self.game.viewDistance, self.game.viewDistance + 1):
-            for column_counter in range(-1 * self.game.viewDistance, self.game.viewDistance + 1):
-                if abs(row_counter) + abs(column_counter) <= self.game.viewDistance:
-                    neighbour = self.game.ant.getNeightbourCell(row_counter, column_counter)
-                    self.neighbours.append(neighbour)
+            bound = self.game.viewDistance - abs(row_counter)
+            for column_counter in range(-1 * bound, bound + 1):
+                self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
 
     def update_map(self):
         for neighbour in self.neighbours:
             AI.map[neighbour.x][neighbour.y] = neighbour
 
     def worker(self):
-        print("Worker")
         there_is_nothing_around = True
-        base_neighbour = self.neighbour_with_cell_type(CellType.BASE.value)
-        if base_neighbour:
-            if base_neighbour[0].x != self.game.baseX and base_neighbour[0].y != self.game.baseY:
-                self.message = f'base at({base_neighbour[0].x}, {base_neighbour[0].y})'
-                
-                # print(self.message)
-            # can see the base you have to report it with high priority ask for attack
-        
-        # empty_neighbours = self.neighbour_with_cell_type(CellType.EMPTY.value)
-        # if empty_neighbours:
-            # required_resource = self.what_resource_is_required()
-            # required_resource = 1
-            # for neighbour in empty_neighbours:
-                # if neighbour.resource_type == 0:
-                #     self.message = f'Bread({neighbour.resource_value}) at ({neighbour.x}, {neighbour.y})'
-                # elif neighbour.resource_type == 1:
-                #     self.message = f'Grass({neighbour.resource_value}) at ({neighbour.x}, {neighbour.y})'
-                # print(self.message)
-        resource_cell = self.find_nearest_resource()
-        shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), resource_cell)
-        # for node in shortest_path:
-        #     print (node.x, node.y)
-        first_cell_to_go = shortest_path[1]
-        self.direction = self.find_direction_from_cell(first_cell_to_go)
-        there_is_nothing_around = False
-        if self.game.ant.currentResource.value == 1:
-            first_node_shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), AI.map[self.game.baseX][self.game.baseY])
-            print (first_node_shortest_path)
-            self.direction = self.find_direction_from_cell(first_node_shortest_path[1])
+        if self.game.ant.currentResource.value >= 1:
+            shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), AI.map[self.game.baseX][self.game.baseY])
+            if shortest_path:
+                self.direction = self.find_direction_from_cell(shortest_path[1])
+                there_is_nothing_around = False
+            else:
+                there_is_nothing_around = True
+        else:
+            resource_cell = self.find_nearest_resource()
+            shortest_path = self.find_shortest_path(self.game.ant.getNeightbourCell(0, 0), resource_cell)
+            if shortest_path:
+                self.direction = self.find_direction_from_cell(shortest_path[1])
+                there_is_nothing_around = False
+            else:
+                there_is_nothing_around = True
         if there_is_nothing_around:
             self.random_walk()
-        
 
     def random_walk(self):
-        self.direction = random.choice(list(Direction)).value
+        neighbours = self.adjacent_neighbour_finder_map(self.game.ant.getNeightbourCell(0, 0))
+        index = random.randint(0, len(neighbours))
+        self.direction = self.find_direction_from_cell(neighbours[index])
 
     def soldier(self):
-        print(f"Soldier {self.message}")
+        self.random_walk()
 
     def find_shortest_path(self, source, dest):
         queue = [[source]]
@@ -119,20 +103,23 @@ class AI:
 
     def adjacent_neighbour_finder_map(self, cell):
         up, down, left, right = list(), list(), list(), list()
-        # print(AI.map)
-        if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type:
+        if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
+                and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:
             right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
-        if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type:
+        if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
+                and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2:
             left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
-        if  AI.map[cell.x][(cell.y + 1) % self.game.mapHeight] != 0 and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type:
-            down = AI.map[cell.x][(cell.y + 1)%self.game.mapHeight]
-        if  AI.map[cell.x][(cell.y - 1)%self.game.mapHeight] != 0 and AI.map[cell.x][(cell.y - 1)%self.game.mapHeight].type:
+        if AI.map[cell.x][(cell.y + 1) % self.game.mapHeight] != 0 \
+                and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type != 2:
+            down = AI.map[cell.x][(cell.y + 1) % self.game.mapHeight]
+        if AI.map[cell.x][(cell.y - 1) % self.game.mapHeight] != 0 \
+                and AI.map[cell.x][(cell.y - 1) % self.game.mapHeight].type != 2:
             up = AI.map[cell.x][(cell.y - 1) % self.game.mapHeight]
         return [direction for direction in [up, down, right, left] if direction != []]
 
     def what_resource_is_required(self):
         pass
-    
+
     def find_direction_from_cell(self, cell):
         current_x = self.game.ant.currentX
         current_y = self.game.ant.currentY
@@ -144,7 +131,7 @@ class AI:
             return Direction.UP.value
         elif cell.x == current_x and cell.y == (current_y + 1) % self.game.mapHeight:
             return Direction.DOWN.value
-        
+
     def neighbour_with_cell_type(self, cell_type):
         return_list = list()
         for neighbour in self.neighbours:
@@ -152,6 +139,13 @@ class AI:
                 return_list.append(neighbour)
         return return_list
 
-    
     def manhattan_distance(self, source, dest):
-        return abs(source.x - dest.x) + abs(source.y - dest.y)
+        if abs(source.x - dest.x) > self.game.mapWidth / 2:
+            res1 = self.game.mapWidth - abs(source.x - dest.x)
+        else:
+            res1 = abs(source.x - dest.x)
+        if abs(source.y - dest.y) > self.game.mapHeight / 2:
+            res2 = self.game.mapHeight - abs(source.y - dest.y)
+        else:
+            res2 = abs(source.y - dest.y)
+        return res1 + res2
