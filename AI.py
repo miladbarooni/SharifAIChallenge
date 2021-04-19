@@ -10,6 +10,8 @@ class AI:
     resource_shortest_path: list = list()
     previous_move: Direction = None
 
+    # group_attack_member: int=0
+
     def __init__(self):
         # Current Game State
         self.game: Game = None
@@ -73,11 +75,21 @@ class AI:
         if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path == []:
             resource_cells = self.find_all_resources_with_distance()
             if resource_cells:
-                resource_cell = self.choose_best_neighbour(resource_cells)
+                resource_cell = self.choose_best_resource(resource_cells)
                 shortest_path = self.find_shortest_path(self.current_position(), resource_cell)
                 AI.resource_shortest_path = shortest_path[1:]
             else:
-                shortest_path = None
+                all_resources_in_agent_map = []
+                for row in AI.map:
+                    for cell in row:
+                        if cell.resource_type != 2:
+                            all_resources_in_agent_map.append(cell)
+                best_resource = self.choose_best_resource(all_resources_in_agent_map)
+                shortest_path = self.find_shortest_path(self.current_position(), best_resource)
+                if shortest_path is None:
+                    best_resource = self.find_best_neighbour(best_resource)
+                    shortest_path = self.find_shortest_path(self.current_position(), best_resource)
+                self.direction = self.find_direction_from_cell(shortest_path[1])
             if shortest_path:
                 self.direction = self.find_direction_from_cell(shortest_path[1])
                 there_is_nothing_around = False
@@ -105,6 +117,15 @@ class AI:
                 result.append(self.reverse_direction(current_direction))
         return result
 
+    def set_move_so_that_not_previous(self, directions):
+        if len(directions) and AI.previous_move == directions[0]:
+            if len(directions) != 1:
+                AI.previous_move = self.direction = directions[1]
+            else:
+                AI.previous_move = self.direction = directions[0]
+        else:
+            AI.previous_move = self.direction = directions[0]
+
     def explorer(self):
         x, y = self.game.baseX, self.game.baseY
         directions = list()
@@ -121,16 +142,10 @@ class AI:
         else:
             directions += self.make_direction(allowed_directions, Direction.DOWN.value, 1, 5)
         random.shuffle(directions)
-        if AI.previous_move == directions[0]:
-            if len(directions) != 1:
-                AI.previous_move = self.direction = directions[1]
-            else:
-                AI.previous_move = self.direction = directions[0]
-        else:
-            AI.previous_move = self.direction = directions[0]
+        self.set_move_so_that_not_previous(directions)
 
     @staticmethod
-    def choose_best_neighbour(cells):
+    def choose_best_resource(cells):
         resource_cell = cells[0]
         for cell in cells:
             if cell[0].resource_type == 1 and resource_cell[0].resource_type == 0:
@@ -144,8 +159,10 @@ class AI:
     def random_walk(self):
         neighbours = self.find_neighbours(self.current_position())
         random.shuffle(neighbours)
-        index = random.randint(0, len(neighbours) - 1)
-        self.direction = self.find_direction_from_cell(neighbours[index])
+        directions = []
+        for neighbour in neighbours:
+            directions += self.find_direction_from_cell(neighbour)
+        self.set_move_so_that_not_previous(directions)
 
     def soldier(self):
         if AI.enemy_base is None:
