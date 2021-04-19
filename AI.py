@@ -9,6 +9,8 @@ class AI:
     enemy_base: Cell = None
     resource_shortest_path: list = list()
     previous_move: Direction = None
+    messages_pool: set = set()
+    past_messages: list = list()
 
     # group_attack_member: int=0
 
@@ -31,7 +33,8 @@ class AI:
         # update all neighbours
         self.update_neighbour()
         self.check_for_enemy_base()
-
+        self.generate_all_message()
+        self.message = self.generate_single_message()
         # update the map (that is not very correct just a view)
         self.update_map()
         if self.game.antType == 1:
@@ -44,8 +47,7 @@ class AI:
         if AI.enemy_base is None:
             for neighbour in self.neighbours:
                 if neighbour.x != self.game.baseX and neighbour.y != self.game.baseY and neighbour.type == 0:
-                    self.message = f'{neighbour.x} {neighbour.y}'
-                    self.value = 2
+                    AI.messages_pool.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 3))
                     AI.enemy_base = neighbour
 
     def update_neighbour(self):
@@ -260,3 +262,46 @@ class AI:
         else:
             result2 = abs(source.y - dest.y)
         return result1 + result2
+
+    def generate_single_message(self):
+        return_message = str()
+        wall_message = list()
+        resource_message = list()
+        for message in AI.messages_pool:
+            if message not in AI.past_messages:
+                if message[1] == 3:
+                    self.value = 3
+                    return_message += message[0]
+                    AI.past_messages.append(message)
+                elif message[1] == 2:
+                    if self.value != 3:
+                        self.value = 2
+                    wall_message.append(message)
+                elif message[1] == 1:
+                    if self.value != 2 and self.value != 3:
+                        self.value = 1
+                    resource_message.append(message)
+        while len(return_message) <= 30:
+            if len(wall_message) == 0 and len(resource_message) == 0:
+                break
+            if len(wall_message) > 0:
+                random.shuffle(wall_message)
+                return_message += wall_message[0][0]
+                AI.past_messages.append(wall_message[0])
+                wall_message = wall_message[1:]
+            if len(resource_message) > 0 and len(wall_message) == 0:
+                random.shuffle(resource_message)
+                return_message += resource_message[0][0]
+                AI.past_messages.append(resource_message[0])
+                resource_message = resource_message[1:]
+        return return_message
+
+    def generate_all_message(self):
+        for neighbour in self.neighbours:
+            if neighbour.type == 2:
+                AI.messages_pool.add((f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
+            elif neighbour.type == 1 and neighbour.resource_type != 2:
+                if neighbour.resource_type == 0:
+                    AI.messages_pool.add((f'R{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+                elif neighbour.resource_type == 1:
+                    AI.messages_pool.add((f'G{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
