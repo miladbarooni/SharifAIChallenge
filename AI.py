@@ -7,6 +7,7 @@ class AI:
     init: bool = True
     state: str = ""
     enemy_base: Cell = None
+    resource_shortest_path: list = list()
 
     def __init__(self):
         # Current Game State
@@ -49,6 +50,7 @@ class AI:
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
+        print("len neighbour in update", len(self.neighbours))
 
     def update_map(self):
         for neighbour in self.neighbours:
@@ -58,16 +60,7 @@ class AI:
         return self.game.ant.getNeightbourCell(0, 0)
 
     def worker(self):
-        if self.game.ant.currentResource.value == 0:
-            resource_cells = self.find_all_resources_with_distance()
-            resource_cell = self.choose_best_neighbour(resource_cells)
-            shortest_path = self.find_shortest_path(self.current_position(), resource_cell)
-            if shortest_path:
-                self.direction = self.find_direction_from_cell(shortest_path[1])
-                there_is_nothing_around = False
-            else:
-                there_is_nothing_around = True
-        else:
+        if self.game.ant.currentResource.value != 0:
             shortest_path = self.find_shortest_path(self.current_position(),
                                                     AI.map[self.game.baseX][self.game.baseY])
             if shortest_path:
@@ -75,6 +68,25 @@ class AI:
                 there_is_nothing_around = False
             else:
                 there_is_nothing_around = True
+        if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path == []:
+            resource_cells = self.find_all_resources_with_distance()
+            if resource_cells:
+                resource_cell = self.choose_best_neighbour(resource_cells)
+                print(resource_cell.x, resource_cell.y)
+                print(len(resource_cells))
+                shortest_path = self.find_shortest_path(self.current_position(), resource_cell)
+                AI.resource_shortest_path = shortest_path[1:]
+            else:
+                shortest_path = None
+            if shortest_path:
+                self.direction = self.find_direction_from_cell(shortest_path[1])
+                there_is_nothing_around = False
+            else:
+                there_is_nothing_around = True
+        elif self.game.ant.currentResource.value == 0 and AI.resource_shortest_path != []:
+            self.direction = self.find_direction_from_cell(AI.resource_shortest_path[0])
+            AI.resource_shortest_path.pop(0)
+            there_is_nothing_around = False
         if there_is_nothing_around:
             self.random_walk()
 
@@ -82,9 +94,9 @@ class AI:
     def choose_best_neighbour(cells):
         resource_cell = cells[0]
         for cell in cells:
-            if cell[0].resource_type == 1 and resource_cell[0].resource_type != 1:
+            if cell[0].resource_type == 1 and resource_cell[0].resource_type == 0:
                 resource_cell = cell
-            elif cell[0].resource_type == 1 and cell[1] < resource_cell[1]:
+            elif cell[0].resource_type == 1 and resource_cell[0].resource_type == 1 and cell[1] < resource_cell[1]:
                 resource_cell = cell
             elif cell[0].resource_type == 0 and resource_cell[0].resource_type == 0 and cell[1] < resource_cell[1]:
                 resource_cell = cell
@@ -99,15 +111,15 @@ class AI:
     def soldier(self):
         if AI.enemy_base is None:
             all_chats = self.game.chatBox.allChats
-            if all_chats:
-                enemy_base_coordinate = all_chats[0].text
+            for chat in all_chats:
+                enemy_base_coordinate = chat.text
                 if enemy_base_coordinate != '':
-                    # This part maybe has bug :))))
                     enemy_base_coordinate = enemy_base_coordinate.split()
                     x, y = self.current_position().x, self.current_position().y
                     relative_x = x - int(enemy_base_coordinate[0]) % self.game.mapWidth
                     relative_y = y - int(enemy_base_coordinate[1]) % self.game.mapHeight
                     AI.enemy_base = self.game.ant.getMapRelativeCell(-1 * relative_x, -1 * relative_y)
+                    print(f'{AI.enemy_base.x}, {AI.enemy_base.y}')
         if AI.enemy_base is None:
             self.random_walk()
         else:
@@ -141,10 +153,12 @@ class AI:
 
     def find_all_resources_with_distance(self):
         result = list()
+        print("neighbour", len(self.neighbours))
         for neighbour in self.neighbours:
             if neighbour.resource_type != 2 and self.manhattan_distance(
                     self.current_position(), neighbour) <= self.game.ant.viewDistance:
                 result.append((neighbour, self.manhattan_distance(self.current_position(), neighbour)))
+        print("len of result:", len(result))
         return result
 
     def find_neighbours(self, cell):
