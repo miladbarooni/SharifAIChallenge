@@ -9,10 +9,8 @@ class AI:
     enemy_base: Cell = None
     resource_shortest_path: list = list()
     previous_move: Direction = None
-    messages_pool: set = set()
+    agent_history: set = set()
     past_messages: list = list()
-
-    # group_attack_member: int=0
 
     def __init__(self):
         # Current Game State
@@ -23,7 +21,7 @@ class AI:
         self.value: int = 0
         self.neighbours: list = list()
         self.type: str = ""
-        self.chatbox: list = list()
+        self.chat_box: list = list()
 
     def turn(self) -> (str, int, int):
         # initial the map
@@ -33,9 +31,9 @@ class AI:
             AI.init = False
         # update all neighbours
         self.update_neighbour()
-        self.read_chatbox()
+        self.read_chat_box()
         self.check_for_enemy_base()
-        self.generate_all_message()
+        self.generate_messages_of_one_agent()
         self.message = self.generate_single_message()
         # update the map (that is not very correct just a view)
         self.update_map()
@@ -49,7 +47,7 @@ class AI:
         if AI.enemy_base is None:
             for neighbour in self.neighbours:
                 if neighbour.x != self.game.baseX and neighbour.y != self.game.baseY and neighbour.type == 0:
-                    AI.messages_pool.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 3))
+                    AI.agent_history.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 3))
                     AI.enemy_base = neighbour
 
     def update_neighbour(self):
@@ -58,20 +56,28 @@ class AI:
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
-                
 
     def update_map(self):
-        # new_cell = Cell()
+        type_dict = {'W': 2, 'R': 1, 'G': 1, 'B': 0}
+        resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
+        for chat in self.chat_box:
+            x = int(chat[1:3])
+            y = int(chat[3:])
+            cell_type = type_dict[chat[0]]
+            resource_type = resource_type_dict[chat[0]]
+            cell = Cell(x, y, cell_type, resource_type, 1)
+            AI.map[x][y] = cell
         for neighbour in self.neighbours:
             AI.map[neighbour.x][neighbour.y] = neighbour
 
-    def read_chatbox(self):
+    def read_chat_box(self):
+        self.chat_box = list()
         chats = self.game.chatBox.allChats
-        print (chats)
-        
         for chat in chats:
-            print(chat.text)
-            
+            split_message = [chat.text[index:index + 5] for index in range(0, 30, 5)]
+            split_message = [message for message in split_message if message != '']
+            for cell in split_message:
+                self.chat_box.append(cell)
 
     def current_position(self):
         return self.game.ant.getNeightbourCell(0, 0)
@@ -91,19 +97,25 @@ class AI:
             if resource_cells:
                 resource_cell = self.choose_best_resource(resource_cells)
                 shortest_path = self.find_shortest_path(self.current_position(), resource_cell)
+                if shortest_path is None:
+                    best_resource = self.find_best_neighbour(resource_cell)
+                    shortest_path = self.find_shortest_path(self.current_position(), best_resource)
                 AI.resource_shortest_path = shortest_path[1:]
             else:
+                shortest_path = None
                 all_resources_in_agent_map = []
                 for row in AI.map:
                     for cell in row:
-                        if cell.resource_type != 2:
-                            all_resources_in_agent_map.append(cell)
-                best_resource = self.choose_best_resource(all_resources_in_agent_map)
-                shortest_path = self.find_shortest_path(self.current_position(), best_resource)
-                if shortest_path is None:
-                    best_resource = self.find_best_neighbour(best_resource)
+                        if cell != 0 and cell.resource_type != 2:
+                            all_resources_in_agent_map.append(
+                                (cell, self.manhattan_distance(self.current_position(), cell)))
+                if all_resources_in_agent_map:
+                    best_resource = self.choose_best_resource(all_resources_in_agent_map)
                     shortest_path = self.find_shortest_path(self.current_position(), best_resource)
-                self.direction = self.find_direction_from_cell(shortest_path[1])
+                    if shortest_path is None:
+                        best_resource = self.find_best_neighbour(best_resource)
+                        shortest_path = self.find_shortest_path(self.current_position(), best_resource)
+                    self.direction = self.find_direction_from_cell(shortest_path[1])
             if shortest_path:
                 self.direction = self.find_direction_from_cell(shortest_path[1])
                 there_is_nothing_around = False
@@ -119,7 +131,7 @@ class AI:
     @staticmethod
     def reverse_direction(direction):
         direction = (direction + 2) % 4
-        return direction if direction != 0 else direction + 1
+        return direction if direction != 0 else 2
 
     def make_direction(self, allowed_directions, current_direction, less, more):
         result = list()
@@ -175,21 +187,21 @@ class AI:
         random.shuffle(neighbours)
         directions = []
         for neighbour in neighbours:
-            directions += self.find_direction_from_cell(neighbour)
+            directions.append(self.find_direction_from_cell(neighbour))
         self.set_move_so_that_not_previous(directions)
 
     def soldier(self):
-        if AI.enemy_base is None:
-            all_chats = self.game.chatBox.allChats
-            for chat in all_chats:
-                enemy_base_coordinate = chat.text
-                if enemy_base_coordinate != '':
-                    enemy_base_coordinate = enemy_base_coordinate.split()
-                    x, y = self.current_position().x, self.current_position().y
-                    relative_x = x - int(enemy_base_coordinate[0]) % self.game.mapWidth
-                    relative_y = y - int(enemy_base_coordinate[1]) % self.game.mapHeight
-                    AI.enemy_base = self.game.ant.getMapRelativeCell(-1 * relative_x, -1 * relative_y)
-                    print(f'{AI.enemy_base.x}, {AI.enemy_base.y}')
+        # if AI.enemy_base is None:
+        #     all_chats = self.game.chatBox.allChats
+        #     for chat in all_chats:
+        #         enemy_base_coordinate = chat.text
+        #         if enemy_base_coordinate != '':
+        #             enemy_base_coordinate = enemy_base_coordinate.split()
+        #             x, y = self.current_position().x, self.current_position().y
+        #             relative_x = x - int(enemy_base_coordinate[0]) % self.game.mapWidth
+        #             relative_y = y - int(enemy_base_coordinate[1]) % self.game.mapHeight
+        #             AI.enemy_base = self.game.ant.getMapRelativeCell(-1 * relative_x, -1 * relative_y)
+        #             print(f'{AI.enemy_base.x}, {AI.enemy_base.y}')
         if AI.enemy_base is None:
             self.explorer()
         else:
@@ -203,7 +215,8 @@ class AI:
         distance, destination = self.manhattan_distance(cell, self.neighbours[0]), self.neighbours[0]
         for neighbour in self.neighbours:
             if self.manhattan_distance(cell, neighbour) < distance:
-                distance, destination = self.manhattan_distance(cell, neighbour), neighbour
+                if self.find_shortest_path(self.current_position(), neighbour) is not None:
+                    distance, destination = self.manhattan_distance(cell, neighbour), neighbour
         return destination
 
     def find_shortest_path(self, source, dest):
@@ -212,7 +225,7 @@ class AI:
         while len(queue) != 0:
             path = queue.pop(0)
             front = path[-1]
-            if front == dest:
+            if front.x == dest.x and front.y == dest.y:
                 return path
             elif front not in visited:
                 for adjacent_neighbour in self.find_neighbours(front):
@@ -279,7 +292,7 @@ class AI:
         return_message = str()
         wall_message = list()
         resource_message = list()
-        for message in AI.messages_pool:
+        for message in AI.agent_history:
             if message not in AI.past_messages:
                 if message[1] == 3:
                     self.value = 3
@@ -306,15 +319,14 @@ class AI:
                 return_message += resource_message[0][0]
                 AI.past_messages.append(resource_message[0])
                 resource_message = resource_message[1:]
-        # print (return_message)
         return return_message
 
-    def generate_all_message(self):
+    def generate_messages_of_one_agent(self):
         for neighbour in self.neighbours:
             if neighbour.type == 2:
-                AI.messages_pool.add((f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
+                AI.agent_history.add((f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
             elif neighbour.type == 1 and neighbour.resource_type != 2:
                 if neighbour.resource_type == 0:
-                    AI.messages_pool.add((f'R{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+                    AI.agent_history.add((f'R{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
                 elif neighbour.resource_type == 1:
-                    AI.messages_pool.add((f'G{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+                    AI.agent_history.add((f'G{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
