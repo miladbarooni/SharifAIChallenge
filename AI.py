@@ -23,6 +23,7 @@ class AI:
         self.value: int = 0
         self.neighbours: list = list()
         self.type: str = ""
+        self.chatbox: list = list()
 
     def turn(self) -> (str, int, int):
         # initial the map
@@ -32,6 +33,7 @@ class AI:
             AI.init = False
         # update all neighbours
         self.update_neighbour()
+        self.read_chatbox()
         self.check_for_enemy_base()
         self.generate_all_message()
         self.message = self.generate_single_message()
@@ -56,10 +58,20 @@ class AI:
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
+                
 
     def update_map(self):
+        # new_cell = Cell()
         for neighbour in self.neighbours:
             AI.map[neighbour.x][neighbour.y] = neighbour
+
+    def read_chatbox(self):
+        chats = self.game.chatBox.allChats
+        print (chats)
+        
+        for chat in chats:
+            print(chat.text)
+            
 
     def current_position(self):
         return self.game.ant.getNeightbourCell(0, 0)
@@ -294,6 +306,7 @@ class AI:
                 return_message += resource_message[0][0]
                 AI.past_messages.append(resource_message[0])
                 resource_message = resource_message[1:]
+        # print (return_message)
         return return_message
 
     def generate_all_message(self):
