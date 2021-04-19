@@ -8,6 +8,7 @@ class AI:
     state: str = ""
     enemy_base: Cell = None
     resource_shortest_path: list = list()
+    previous_move: Direction = None
 
     def __init__(self):
         # Current Game State
@@ -28,6 +29,7 @@ class AI:
         # update all neighbours
         self.update_neighbour()
         self.check_for_enemy_base()
+
         # update the map (that is not very correct just a view)
         self.update_map()
         if self.game.antType == 1:
@@ -50,7 +52,6 @@ class AI:
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
-        print("len neighbour in update", len(self.neighbours))
 
     def update_map(self):
         for neighbour in self.neighbours:
@@ -60,6 +61,7 @@ class AI:
         return self.game.ant.getNeightbourCell(0, 0)
 
     def worker(self):
+        there_is_nothing_around = False
         if self.game.ant.currentResource.value != 0:
             shortest_path = self.find_shortest_path(self.current_position(),
                                                     AI.map[self.game.baseX][self.game.baseY])
@@ -72,8 +74,6 @@ class AI:
             resource_cells = self.find_all_resources_with_distance()
             if resource_cells:
                 resource_cell = self.choose_best_neighbour(resource_cells)
-                print(resource_cell.x, resource_cell.y)
-                print(len(resource_cells))
                 shortest_path = self.find_shortest_path(self.current_position(), resource_cell)
                 AI.resource_shortest_path = shortest_path[1:]
             else:
@@ -89,6 +89,45 @@ class AI:
             there_is_nothing_around = False
         if there_is_nothing_around:
             self.random_walk()
+
+    @staticmethod
+    def reverse_direction(direction):
+        direction = (direction + 2) % 4
+        return direction if direction != 0 else direction + 1
+
+    def make_direction(self, allowed_directions, current_direction, less, more):
+        result = list()
+        if current_direction in allowed_directions:
+            for _ in range(more):
+                result.append(current_direction)
+        if current_direction in allowed_directions:
+            for _ in range(less):
+                result.append(self.reverse_direction(current_direction))
+        return result
+
+    def explorer(self):
+        x, y = self.game.baseX, self.game.baseY
+        directions = list()
+        allowed_directions = list()
+        neighbours = self.find_neighbours(self.current_position())
+        for neighbour in neighbours:
+            allowed_directions.append(self.find_direction_from_cell(neighbour))
+        if x > self.game.mapWidth / 2:
+            directions += self.make_direction(allowed_directions, Direction.LEFT.value, 1, 5)
+        else:
+            directions += self.make_direction(allowed_directions, Direction.RIGHT.value, 1, 5)
+        if y > self.game.mapHeight / 2:
+            directions += self.make_direction(allowed_directions, Direction.UP.value, 1, 5)
+        else:
+            directions += self.make_direction(allowed_directions, Direction.DOWN.value, 1, 5)
+        random.shuffle(directions)
+        if AI.previous_move == directions[0]:
+            if len(directions) != 1:
+                AI.previous_move = self.direction = directions[1]
+            else:
+                AI.previous_move = self.direction = directions[0]
+        else:
+            AI.previous_move = self.direction = directions[0]
 
     @staticmethod
     def choose_best_neighbour(cells):
@@ -121,7 +160,7 @@ class AI:
                     AI.enemy_base = self.game.ant.getMapRelativeCell(-1 * relative_x, -1 * relative_y)
                     print(f'{AI.enemy_base.x}, {AI.enemy_base.y}')
         if AI.enemy_base is None:
-            self.random_walk()
+            self.explorer()
         else:
             shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
             if shortest_path is None:
@@ -153,12 +192,10 @@ class AI:
 
     def find_all_resources_with_distance(self):
         result = list()
-        print("neighbour", len(self.neighbours))
         for neighbour in self.neighbours:
             if neighbour.resource_type != 2 and self.manhattan_distance(
                     self.current_position(), neighbour) <= self.game.ant.viewDistance:
                 result.append((neighbour, self.manhattan_distance(self.current_position(), neighbour)))
-        print("len of result:", len(result))
         return result
 
     def find_neighbours(self, cell):
