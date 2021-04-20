@@ -11,6 +11,7 @@ class AI:
     previous_move: Direction = None
     agent_history: set = set()
     past_messages: list = list()
+    played_turns: int = 0
 
     def __init__(self):
         # Current Game State
@@ -22,6 +23,8 @@ class AI:
         self.neighbours: list = list()
         self.type: str = ""
         self.chat_box: list = list()
+        self.previous_ant_count: int = 0
+        self.previous_scorpion_count: int = 0
 
     def turn(self) -> (str, int, int):
         # initial the map
@@ -35,7 +38,8 @@ class AI:
         self.check_for_enemy_base()
         self.generate_messages_of_one_agent()
         self.message = self.generate_single_message()
-        # update the map (that is not very correct just a view)
+        print(self.agent_count())
+        AI.played_turns += 1
         self.update_map()
         if self.game.antType == 1:
             self.worker()
@@ -57,6 +61,35 @@ class AI:
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
 
+    def previous_turn(self):
+        chats = self.game.chatBox.allChats
+        if chats:
+            previous_turn = chats[len(chats) - 1].turn
+            return previous_turn
+        return 0  # TODO: unknown
+
+    def agent_count(self):
+        chats = self.game.chatBox.allChats
+        self.previous_ant_count = 0
+        self.previous_scorpion_count = 0
+        last_turn = self.previous_turn()
+        for chat in chats:
+            if chat.turn == last_turn:
+                split_message = [chat.text[index:index + 5] for index in range(0, 30, 5)]
+                split_message = [message for message in split_message if message != '']
+                type = split_message[len(split_message) - 1]
+                if type == '1':
+                    self.previous_ant_count += 1
+                else:
+                    self.previous_scorpion_count += 1
+        if self.game.antType == 0:
+            if AI.played_turns == 0 or last_turn == 0:  # TODO : bugGGGG of chat(chat is empty so last turn is 0 )
+                return self.previous_scorpion_count + 1, self.previous_ant_count
+        else:
+            if AI.played_turns == 0 or last_turn == 0:
+                return self.previous_scorpion_count, self.previous_ant_count + 1
+        return self.previous_scorpion_count, self.previous_ant_count
+
     def update_map(self):
         type_dict = {'W': 2, 'R': 1, 'G': 1, 'B': 0}
         resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
@@ -76,6 +109,7 @@ class AI:
         for chat in chats:
             split_message = [chat.text[index:index + 5] for index in range(0, 30, 5)]
             split_message = [message for message in split_message if message != '']
+            split_message = split_message[:len(split_message) - 1]
             for cell in split_message:
                 self.chat_box.append(cell)
 
@@ -319,14 +353,18 @@ class AI:
                 return_message += resource_message[0][0]
                 AI.past_messages.append(resource_message[0])
                 resource_message = resource_message[1:]
+        return_message = return_message + str(self.game.antType)
         return return_message
 
     def generate_messages_of_one_agent(self):
         for neighbour in self.neighbours:
             if neighbour.type == 2:
-                AI.agent_history.add((f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
+                AI.agent_history.add(
+                    (f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
             elif neighbour.type == 1 and neighbour.resource_type != 2:
                 if neighbour.resource_type == 0:
-                    AI.agent_history.add((f'R{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+                    AI.agent_history.add(
+                        (f'R{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
                 elif neighbour.resource_type == 1:
-                    AI.agent_history.add((f'G{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+                    AI.agent_history.add(
+                        (f'G{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
