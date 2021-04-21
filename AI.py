@@ -45,8 +45,7 @@ class AI:
         elif self.game.antType == 0:
             self.soldier()
         AI.played_turns += 1
-        if AI.scorpion_count == 4:
-            AI.scorpion_count = 0
+        print("scorpions ", AI.scorpion_count, "turn", self.previous_turn() + 1)
         return self.message, self.value, self.direction
 
     def check_for_enemy_base(self):
@@ -220,12 +219,15 @@ class AI:
     def soldier(self):
         if AI.enemy_base is None:
             self.explorer()
-        else:
+        elif AI.scorpion_count < 4:
+            self.direction = Direction.CENTER
+        elif AI.scorpion_count >= 4:
             shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
             if shortest_path is None:
                 best_neighbour = self.find_best_neighbour(AI.enemy_base)
                 shortest_path = self.find_shortest_path(self.current_position(), best_neighbour)
             self.direction = self.find_direction_from_cell(shortest_path[1])
+            AI.scorpion_count = AI.scorpion_count % 4  # at one turn
 
     def find_best_neighbour(self, cell):
         distance, destination = self.manhattan_distance(cell, self.neighbours[0]), self.neighbours[0]
@@ -305,7 +307,8 @@ class AI:
         return result1 + result2
 
     def generate_single_message(self):
-        if AI.played_turns == 0:
+        if AI.played_turns == 0 and self.game.antType==0 :
+            AI.scorpion_count += 1
             return '00000'
         return_message = str()
         wall_message = list()
