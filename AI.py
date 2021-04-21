@@ -77,8 +77,8 @@ class AI:
         resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
         AI.scorpion_count = 0
         for chat in self.chat_box:
-            if len(chat) % 5 != 0:
-                chat.text = chat.text[0:-1]
+            if len(chat) == 1:
+                continue
             x = int(chat[1:3])
             y = int(chat[3:])
             cell_type = type_dict[chat[0]]
