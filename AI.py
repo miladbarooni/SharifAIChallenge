@@ -77,7 +77,7 @@ class AI:
         resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
         AI.scorpion_count = 0
         for chat in self.chat_box:
-            if len(chat.text) % 5 != 0:
+            if len(chat) % 5 != 0:
                 chat.text = chat.text[0:-1]
             x = int(chat[1:3])
             y = int(chat[3:])
@@ -189,8 +189,11 @@ class AI:
                 AI.previous_move = self.direction = directions[1]
             else:
                 AI.previous_move = self.direction = directions[0]
-        else:
+        
+        elif len(directions) != 0:
             AI.previous_move = self.direction = directions[0]
+        else:
+            self.random_walk()
 
     def explorer(self):
         x, y = self.game.baseX, self.game.baseY
@@ -243,7 +246,6 @@ class AI:
                 best_neighbour = self.find_best_neighbour(AI.enemy_base)
                 shortest_path = self.find_shortest_path(self.current_position(), best_neighbour)
             self.direction = self.find_direction_from_cell(shortest_path[1])
-            AI.scorpion_count = AI.scorpion_count % 4  # at one turn
 
     def find_best_neighbour(self, cell):
         distance, destination = self.manhattan_distance(cell, self.neighbours[0]), self.neighbours[0]
@@ -361,7 +363,7 @@ class AI:
                 AI.past_messages.append(wall_message[0])
                 wall_message = wall_message[1:]
 
-        return_message += appended_state
+        return_message += self.appended_state
         print(return_message)
         return return_message
 
@@ -378,13 +380,13 @@ class AI:
                 AI.agent_history.add(
                     (f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
 
-    # def random_walk(self):
-    #     neighbours = self.find_neighbours(self.current_position())
-    #     random.shuffle(neighbours)
-    #     directions = []
-    #     for neighbour in neighbours:
-    #         directions.append(self.find_direction_from_cell(neighbour))
-    #     self.set_move_so_that_not_previous(directions)
+    def random_walk(self):
+        neighbours = self.find_neighbours(self.current_position())
+        random.shuffle(neighbours)
+        directions = []
+        for neighbour in neighbours:
+            directions.append(self.find_direction_from_cell(neighbour))
+        self.set_move_so_that_not_previous(directions)
 
     # def agent_count(self):
     #     chats = self.game.chatBox.allChats
