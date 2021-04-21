@@ -235,11 +235,12 @@ class AI:
 
     def soldier(self):
         if AI.enemy_base is None:
-            self.explorer()
+            self.direction = Direction.CENTER
         elif AI.generated_scorpion - AI.attacking_scorpion < 4:
             self.direction = Direction.CENTER
         elif AI.generated_scorpion - AI.attacking_scorpion >= 4:
             self.appended_state = 'A'
+            print ("Atacking")
             AI.attacking_scorpion += 1
             shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
             if shortest_path is None:
