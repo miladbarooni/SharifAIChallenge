@@ -16,6 +16,7 @@ class AI:
     attacking_scorpion: int = 0
     is_attacking: bool = False
     purpose_cell: Cell = None
+    
 
     def __init__(self):
         # Current Game State
@@ -55,7 +56,8 @@ class AI:
         if AI.enemy_base is None:
             for neighbour in self.neighbours:
                 if neighbour.x != self.game.baseX and neighbour.y != self.game.baseY and neighbour.type == 0:
-                    AI.agent_history.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 4))
+                    print ("I see the base")
+                    AI.agent_history.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 3))
                     AI.enemy_base = neighbour
 
     def update_neighbour(self):
@@ -234,19 +236,27 @@ class AI:
         return resource_cell[0]
 
     def soldier(self):
+        if AI.state == "Attack":
+            self.attack()
+            self.appended_state = 'A'
+            return 
         if AI.enemy_base is None:
-            self.direction = Direction.CENTER
+            self.direction = Direction.CENTER.value
         elif AI.generated_scorpion - AI.attacking_scorpion < 4:
-            self.direction = Direction.CENTER
+            self.direction = Direction.CENTER.value
         elif AI.generated_scorpion - AI.attacking_scorpion >= 4:
             self.appended_state = 'A'
-            print ("Atacking")
+            AI.state = "Attack"
+            # print ("Attacking")
             AI.attacking_scorpion += 1
-            shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
-            if shortest_path is None:
-                best_neighbour = self.find_best_neighbour(AI.enemy_base)
-                shortest_path = self.find_shortest_path(self.current_position(), best_neighbour)
-            self.direction = self.find_direction_from_cell(shortest_path[1])
+            self.attack()
+
+    def attack(self):
+        shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
+        if shortest_path is None:
+            best_neighbour = self.find_best_neighbour(AI.enemy_base)
+            shortest_path = self.find_shortest_path(self.current_position(), best_neighbour)
+        self.direction = self.find_direction_from_cell(shortest_path[1])
 
     def find_best_neighbour(self, cell):
         distance, destination = self.manhattan_distance(cell, self.neighbours[0]), self.neighbours[0]
