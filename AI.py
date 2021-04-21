@@ -12,7 +12,8 @@ class AI:
     agent_history: set = set()
     past_messages: list = list()
     played_turns: int = 0
-    scorpion_count: int = 0
+    generated_scorpion: int = 0
+    attacking_scorpion: int = 0
     is_attacking: bool = False
     purpose_cell: Cell = None
 
@@ -26,7 +27,7 @@ class AI:
         self.neighbours: list = list()
         self.type: str = ""
         self.chat_box: list = list()
-
+        self.appended_state = ''
     def turn(self) -> (str, int, int):
         # initial the map
         if AI.init:
@@ -38,14 +39,16 @@ class AI:
         self.read_chat_box()
         self.check_for_enemy_base()
         self.generate_messages_of_one_agent()
-        self.message = self.generate_single_message()
+        
         self.update_map()
         if self.game.antType == 1:
             self.worker()
         elif self.game.antType == 0:
             self.soldier()
+        self.message = self.generate_single_message()
+        print (self.message)
+        print("current turn",AI.played_turns)
         AI.played_turns += 1
-        print("scorpions ", AI.scorpion_count, "turn", self.previous_turn() + 1)
         return self.message, self.value, self.direction
 
     def check_for_enemy_base(self):
@@ -72,9 +75,10 @@ class AI:
     def update_map(self):
         type_dict = {'W': 2, 'R': 1, 'G': 1, 'B': 0}
         resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
+        AI.scorpion_count = 0
         for chat in self.chat_box:
-            if chat == '00000':
-                AI.scorpion_count += 1
+            if len(chat.text) % 5 != 0:
+                chat.text = chat.text[0:-1]
             x = int(chat[1:3])
             y = int(chat[3:])
             cell_type = type_dict[chat[0]]
@@ -87,14 +91,24 @@ class AI:
             AI.map[neighbour.x][neighbour.y] = neighbour
 
     def read_chat_box(self):
+        AI.generated_scorpion=0
         self.chat_box = list()
         chats = self.game.chatBox.allChats
         for chat in chats:
-            split_message = [chat.text[index:index + 5] for index in range(0, 30, 5)]
+            decode_until = len(chat.text)
+            if decode_until % 5 != 0:
+                appended_state = chat.text[-1]
+                print ("append:", appended_state)
+                chat.text = chat.text[0:-1]
+                if appended_state =='G':
+                    AI.generated_scorpion+=1
+                self.chat_box.append(appended_state)
+            split_message = [chat.text[index:index + 5] for index in range(0, decode_until - 1, 5)]
             split_message = [message for message in split_message if message != '']
             split_message = split_message[:len(split_message) - 1]
             for cell in split_message:
                 self.chat_box.append(cell)
+        print(self.chat_box)
 
     def current_position(self):
         return self.game.ant.getNeightbourCell(0, 0)
@@ -219,9 +233,11 @@ class AI:
     def soldier(self):
         if AI.enemy_base is None:
             self.explorer()
-        elif AI.scorpion_count < 4:
+        elif AI.generated_scorpion - AI.attacking_scorpion < 4:
             self.direction = Direction.CENTER
-        elif AI.scorpion_count >= 4:
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 4:
+            self.appended_state = 'A'
+            AI.attacking_scorpion += 1
             shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
             if shortest_path is None:
                 best_neighbour = self.find_best_neighbour(AI.enemy_base)
@@ -307,27 +323,31 @@ class AI:
         return result1 + result2
 
     def generate_single_message(self):
-        if AI.played_turns == 0 and self.game.antType==0 :
-            AI.scorpion_count += 1
-            return '00000'
+        
+        if AI.played_turns == 0 and self.game.antType == 0:
+            # print("generated")
+            AI.generated_scorpion += 1
+            self.value = 4
+            self.appended_state = 'G'
         return_message = str()
         wall_message = list()
         resource_message = list()
         for message in AI.agent_history:
-            if message not in AI.past_messages:
+            if message not in AI.past_messages and message not in self.chat_box:
                 if message[1] == 3:
-                    self.value = 3
+                    if self.value != 4:
+                        self.value = 3
                     return_message += message[0]
                     AI.past_messages.append(message)
                 elif message[1] == 2:
-                    if self.value != 3:
+                    if self.value != 3 and self.value != 4:
                         self.value = 2
                     wall_message.append(message)
                 elif message[1] == 1:
-                    if self.value != 2 and self.value != 3:
+                    if self.value != 2 and self.value != 3 and self.value != 4:
                         self.value = 1
                     resource_message.append(message)
-        while len(return_message) <= 30:
+        while len(return_message) <= 25:
             if len(wall_message) == 0 and len(resource_message) == 0:
                 break
             if len(resource_message) > 0:
@@ -340,6 +360,9 @@ class AI:
                 return_message += wall_message[0][0]
                 AI.past_messages.append(wall_message[0])
                 wall_message = wall_message[1:]
+
+        return_message += appended_state
+        print(return_message)
         return return_message
 
     def generate_messages_of_one_agent(self):
