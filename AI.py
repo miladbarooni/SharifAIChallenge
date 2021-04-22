@@ -140,33 +140,42 @@ class AI:
         return result_cell
 
     def worker(self):
-        shortest_path = None
         if self.game.ant.currentResource.value != 0:
             shortest_path = self.find_shortest_path(self.current_position(),
                                                     AI.map[self.game.baseX][self.game.baseY])
             self.direction = self.find_direction_from_cell(shortest_path[1])
             return
-        if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path != []:
-            self.direction = self.find_direction_from_cell(AI.resource_shortest_path[0])
-            AI.resource_shortest_path.pop(0)
-            return
-        if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path == []:
-            resource_cells = self.find_all_resources_with_distance()
-            if resource_cells:
-                shortest_path = self.path_to_best_resource_cell(resource_cells)
-            if shortest_path is None:
-                all_resources_in_agent_map = []
-                for row in AI.map:
-                    for cell in row:
-                        if cell != 0 and cell.type == 1 and cell.resource_type != 2:
-                            all_resources_in_agent_map.append(
-                                (cell, self.manhattan_distance(self.current_position(), cell)))
-                if all_resources_in_agent_map:
-                    shortest_path = self.path_to_best_resource_cell(all_resources_in_agent_map)
-            if shortest_path:
+        all_resource_paths = list()
+        for row in AI.map:
+            for cell in row:
+                if cell != 0 and cell.type == 1 and cell.resource_type != 2:
+                    this_path = self.find_shortest_path(self.current_position(), cell)
+                    if this_path is not None:
+                        all_resource_paths.append(this_path)
+        if all_resource_paths:
+            shortest_path = all_resource_paths[0]
+            for path in all_resource_paths:
+                if len(path) < len(shortest_path):
+                    shortest_path = path
+            self.direction = self.find_direction_from_cell(shortest_path[1])
+        else:
+            all_resources = list()
+            for row in AI.map:
+                for cell in row:
+                    if cell != 0 and cell.type == 1 and cell.resource_type != 2:
+                        if self.manhattan_distance(self.current_position(), cell) >= self.game.viewDistance:
+                            all_resources.append(cell)
+            all_neighbours_path = list()
+            for cell in all_resources:
+                all_neighbours_path.append(self.find_shortest_path(self.current_position(), self.find_best_neighbour(cell)))
+            if all_neighbours_path:
+                shortest_path = all_neighbours_path[0]
+                for path in all_neighbours_path:
+                    if len(path) > len(shortest_path):
+                        shortest_path = path
                 self.direction = self.find_direction_from_cell(shortest_path[1])
-                return
-        self.explorer()
+            else:
+                self.explorer()
 
     @staticmethod
     def reverse_direction(direction):
@@ -213,14 +222,16 @@ class AI:
         if cell.x < self.current_position().x and cell.y < self.current_position().y:
             return Direction.LEFT.value, Direction.UP.value
 
-    def remove_tuple_from_list(self, this_tuple, this_list):
+    @staticmethod
+    def remove_tuple_from_list(this_tuple, this_list, count):
         for item in this_tuple:
-            if item in this_list:
-                this_list.remove(item)
+            for _ in range(count):
+                if item in this_list:
+                    this_list.remove(item)
         return this_list
 
     def explorer(self):
-        probabilities = [counter for counter in range(1, 5) for _ in range(20)]
+        probabilities = [counter for counter in range(1, 5) for _ in range(60)]
         adjacent_neighbours = self.find_neighbours(self.current_position())
         valid_neighbours = list(adjacent_neighbours)
         for neighbour in adjacent_neighbours:
@@ -231,21 +242,55 @@ class AI:
         if len(valid_neighbours) == 0:
             adjacent_neighbours = self.find_neighbours(self.current_position())
             valid_neighbours = list(adjacent_neighbours)
-            if len(adjacent_neighbours) == 2:
+            if len(adjacent_neighbours) >= 2:
                 for neighbour in adjacent_neighbours:
-                    if len(AI.explored_path) >= 2 and neighbour.x == AI.explored_path[-2][0] and neighbour.y == AI.explored_path[-2][1]:
+                    if len(AI.explored_path) >= 2 and neighbour.x == AI.explored_path[-2][0] and neighbour.y == \
+                            AI.explored_path[-2][1]:
                         valid_neighbours.remove(neighbour)
         adjacent_neighbours_directions = [self.find_direction_from_cell(neighbour) for neighbour in valid_neighbours]
         probabilities = [probability for probability in probabilities if probability in adjacent_neighbours_directions]
         all_neighbours = [neighbour for neighbour in self.neighbours if
                           neighbour.x != self.current_position().x and neighbour.y != self.current_position().y]
         for neighbour in all_neighbours:
-            if (neighbour.x, neighbour.y) in AI.explored_path or neighbour.type == 2 or self.find_shortest_path(
-                    self.current_position(), neighbour) is None:
+            if self.find_shortest_path(self.current_position(), neighbour) is None or neighbour.type == 2:
+                count = self.manhattan_distance(self.current_position(), neighbour)
                 probabilities = self.remove_tuple_from_list(self.find_overall_direction_from_cell(neighbour),
-                                                            probabilities)
+                                                            probabilities, count)
+            for coordinate in AI.explored_path:
+                if coordinate[0] == neighbour.x and coordinate[1] == neighbour.y:
+                    count = self.manhattan_distance(self.current_position(), neighbour)
+                    probabilities = self.remove_tuple_from_list(self.find_overall_direction_from_cell(neighbour),
+                                                                probabilities, count)
         random.shuffle(probabilities)
-        self.direction = probabilities[0]
+        if probabilities:
+            self.direction = probabilities[0]
+        else:
+            all_acceptable_cells = list()
+            for row in AI.map:
+                for cell in row:
+                    if cell != 0 and cell.type != 2:
+                        all_acceptable_cells.append(cell)
+            valid_acceptable_cells = list(all_acceptable_cells)
+            for cell in all_acceptable_cells:
+                for coordinate in AI.explored_path:
+                    if coordinate[0] == cell.x and coordinate[1] == cell.y:
+                        if cell in valid_acceptable_cells:
+                            valid_acceptable_cells.remove(cell)
+            all_paths = list()
+            for cell in valid_acceptable_cells:
+                shortest_path = self.find_shortest_path(self.current_position(), cell)
+                if shortest_path is not None:
+                    all_paths.append(shortest_path)
+            if all_paths:
+                shortest_path = all_paths[0]
+                for path in all_paths:
+                    if len(shortest_path) > len(path):
+                        shortest_path = path
+                self.direction = self.find_direction_from_cell(shortest_path[1])
+            else:
+                adjacent_neighbours = self.find_neighbours(self.current_position())
+                random.shuffle(adjacent_neighbours)
+                self.direction = self.find_direction_from_cell(adjacent_neighbours[0])
 
     def choose_best_resource(self, cells):
         resource_cell = cells[0]
@@ -276,14 +321,14 @@ class AI:
             self.attack()
             self.appended_state = 'A'
             return
-        if AI.generated_scorpion - AI.attacking_scorpion < 4:
+        if AI.generated_scorpion - AI.attacking_scorpion < 3:
             self.direction = Direction.CENTER.value
-        elif AI.generated_scorpion - AI.attacking_scorpion >= 4 and AI.enemy_base is not None:
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is not None:
             self.appended_state = 'A'
             AI.state = "Attack"
             AI.attacking_scorpion += 1
             self.attack()
-        elif AI.generated_scorpion - AI.attacking_scorpion >= 4 and AI.enemy_base is None:
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is None:
             self.appended_state = 'A'
             AI.state = "Attack"
             AI.attacking_scorpion += 1
@@ -433,6 +478,35 @@ class AI:
         for neighbour in neighbours:
             directions.append(self.find_direction_from_cell(neighbour))
         self.set_move_so_that_not_previous(directions)
+
+    # def worker(self):
+    #     shortest_path = None
+    #     if self.game.ant.currentResource.value != 0:
+    #         shortest_path = self.find_shortest_path(self.current_position(),
+    #                                                 AI.map[self.game.baseX][self.game.baseY])
+    #         self.direction = self.find_direction_from_cell(shortest_path[1])
+    #         return
+    #     if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path != []:
+    #         self.direction = self.find_direction_from_cell(AI.resource_shortest_path[0])
+    #         AI.resource_shortest_path.pop(0)
+    #         return
+    #     if self.game.ant.currentResource.value == 0 and AI.resource_shortest_path == []:
+    #         resource_cells = self.find_all_resources_with_distance()
+    #         if resource_cells:
+    #             shortest_path = self.path_to_best_resource_cell(resource_cells)
+    #         if shortest_path is None:
+    #             all_resources_in_agent_map = []
+    #             for row in AI.map:
+    #                 for cell in row:
+    #                     if cell != 0 and cell.type == 1 and cell.resource_type != 2:
+    #                         all_resources_in_agent_map.append(
+    #                             (cell, self.manhattan_distance(self.current_position(), cell)))
+    #             if all_resources_in_agent_map:
+    #                 shortest_path = self.path_to_best_resource_cell(all_resources_in_agent_map)
+    #         if shortest_path:
+    #             self.direction = self.find_direction_from_cell(shortest_path[1])
+    #             return
+    #     self.explorer()
 
     # def agent_count(self):
     #     chats = self.game.chatBox.allChats
