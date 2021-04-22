@@ -1,3 +1,5 @@
+import math
+
 from Model import *
 import random
 
@@ -16,7 +18,7 @@ class AI:
     attacking_scorpion: int = 0
     is_attacking: bool = False
     purpose_cell: Cell = None
-    
+    explored_path: list = list()
 
     def __init__(self):
         # Current Game State
@@ -29,6 +31,7 @@ class AI:
         self.type: str = ""
         self.chat_box: list = list()
         self.appended_state = ''
+
     def turn(self) -> (str, int, int):
         # initial the map
         if AI.init:
@@ -36,19 +39,17 @@ class AI:
             AI.our_base = self.current_position()
             AI.init = False
         # update all neighbours
+        AI.explored_path.append((self.current_position().x, self.current_position().y))
         self.update_neighbour()
         self.read_chat_box()
         self.check_for_enemy_base()
         self.generate_messages_of_one_agent()
-        
         self.update_map()
         if self.game.antType == 1:
             self.worker()
         elif self.game.antType == 0:
             self.soldier()
         self.message = self.generate_single_message()
-        print (self.message)
-        print("current turn",AI.played_turns)
         AI.played_turns += 1
         return self.message, self.value, self.direction
 
@@ -56,7 +57,6 @@ class AI:
         if AI.enemy_base is None:
             for neighbour in self.neighbours:
                 if neighbour.x != self.game.baseX and neighbour.y != self.game.baseY and neighbour.type == 0:
-                    print ("I see the base")
                     AI.agent_history.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 3))
                     AI.enemy_base = neighbour
 
@@ -72,7 +72,7 @@ class AI:
         if chats:
             previous_turn = chats[len(chats) - 1].turn
             return previous_turn
-        return 0  # TODO: unknown
+        return 0
 
     def update_map(self):
         type_dict = {'W': 2, 'R': 1, 'G': 1, 'B': 0}
@@ -93,24 +93,22 @@ class AI:
             AI.map[neighbour.x][neighbour.y] = neighbour
 
     def read_chat_box(self):
-        AI.generated_scorpion=0
+        AI.generated_scorpion = 0
         self.chat_box = list()
         chats = self.game.chatBox.allChats
         for chat in chats:
             decode_until = len(chat.text)
             if decode_until % 5 != 0:
                 appended_state = chat.text[-1]
-                print ("append:", appended_state)
                 chat.text = chat.text[0:-1]
-                if appended_state =='G':
-                    AI.generated_scorpion+=1
+                if appended_state == 'G':
+                    AI.generated_scorpion += 1
                 self.chat_box.append(appended_state)
             split_message = [chat.text[index:index + 5] for index in range(0, decode_until - 1, 5)]
             split_message = [message for message in split_message if message != '']
             split_message = split_message[:len(split_message) - 1]
             for cell in split_message:
                 self.chat_box.append(cell)
-        print(self.chat_box)
 
     def current_position(self):
         return self.game.ant.getNeightbourCell(0, 0)
@@ -191,29 +189,63 @@ class AI:
                 AI.previous_move = self.direction = directions[1]
             else:
                 AI.previous_move = self.direction = directions[0]
-        
+
         elif len(directions) != 0:
             AI.previous_move = self.direction = directions[0]
         else:
             self.random_walk()
 
+    def find_overall_direction_from_cell(self, cell):
+        if cell.x > self.current_position().x and cell.y == self.current_position().y:
+            return Direction.RIGHT.value, Direction.RIGHT.value
+        if cell.x < self.current_position().x and cell.y == self.current_position().y:
+            return Direction.LEFT.value, Direction.LEFT.value
+        if cell.x == self.current_position().x and cell.y < self.current_position().y:
+            return Direction.UP.value, Direction.UP.value
+        if cell.x == self.current_position().x and cell.y > self.current_position().y:
+            return Direction.DOWN.value, Direction.DOWN.value
+        if cell.x > self.current_position().x and cell.y > self.current_position().y:
+            return Direction.RIGHT.value, Direction.DOWN.value
+        if cell.x > self.current_position().x and cell.y < self.current_position().y:
+            return Direction.RIGHT.value, Direction.UP.value
+        if cell.x < self.current_position().x and cell.y > self.current_position().y:
+            return Direction.LEFT.value, Direction.DOWN.value
+        if cell.x < self.current_position().x and cell.y < self.current_position().y:
+            return Direction.LEFT.value, Direction.UP.value
+
+    def remove_tuple_from_list(self, this_tuple, this_list):
+        for item in this_tuple:
+            if item in this_list:
+                this_list.remove(item)
+        return this_list
+
     def explorer(self):
-        x, y = self.game.baseX, self.game.baseY
-        directions = list()
-        allowed_directions = list()
-        neighbours = self.find_neighbours(self.current_position())
-        for neighbour in neighbours:
-            allowed_directions.append(self.find_direction_from_cell(neighbour))
-        if x > self.game.mapWidth / 2:
-            directions += self.make_direction(allowed_directions, Direction.LEFT.value, 1, 5)
-        else:
-            directions += self.make_direction(allowed_directions, Direction.RIGHT.value, 1, 5)
-        if y > self.game.mapHeight / 2:
-            directions += self.make_direction(allowed_directions, Direction.UP.value, 1, 5)
-        else:
-            directions += self.make_direction(allowed_directions, Direction.DOWN.value, 1, 5)
-        random.shuffle(directions)
-        self.set_move_so_that_not_previous(directions)
+        probabilities = [counter for counter in range(1, 5) for _ in range(20)]
+        adjacent_neighbours = self.find_neighbours(self.current_position())
+        valid_neighbours = list(adjacent_neighbours)
+        for neighbour in adjacent_neighbours:
+            for coordinate in AI.explored_path:
+                if coordinate[0] == neighbour.x and coordinate[1] == neighbour.y:
+                    if neighbour in valid_neighbours:
+                        valid_neighbours.remove(neighbour)
+        if len(valid_neighbours) == 0:
+            adjacent_neighbours = self.find_neighbours(self.current_position())
+            valid_neighbours = list(adjacent_neighbours)
+            if len(adjacent_neighbours) == 2:
+                for neighbour in adjacent_neighbours:
+                    if len(AI.explored_path) >= 2 and neighbour.x == AI.explored_path[-2][0] and neighbour.y == AI.explored_path[-2][1]:
+                        valid_neighbours.remove(neighbour)
+        adjacent_neighbours_directions = [self.find_direction_from_cell(neighbour) for neighbour in valid_neighbours]
+        probabilities = [probability for probability in probabilities if probability in adjacent_neighbours_directions]
+        all_neighbours = [neighbour for neighbour in self.neighbours if
+                          neighbour.x != self.current_position().x and neighbour.y != self.current_position().y]
+        for neighbour in all_neighbours:
+            if (neighbour.x, neighbour.y) in AI.explored_path or neighbour.type == 2 or self.find_shortest_path(
+                    self.current_position(), neighbour) is None:
+                probabilities = self.remove_tuple_from_list(self.find_overall_direction_from_cell(neighbour),
+                                                            probabilities)
+        random.shuffle(probabilities)
+        self.direction = probabilities[0]
 
     def choose_best_resource(self, cells):
         resource_cell = cells[0]
@@ -236,20 +268,26 @@ class AI:
         return resource_cell[0]
 
     def soldier(self):
+        if AI.state == "Attack" and AI.enemy_base is None:
+            self.explorer()
+            self.appended_state = 'A'
+            return
         if AI.state == "Attack":
             self.attack()
             self.appended_state = 'A'
-            return 
-        if AI.enemy_base is None:
+            return
+        if AI.generated_scorpion - AI.attacking_scorpion < 4:
             self.direction = Direction.CENTER.value
-        elif AI.generated_scorpion - AI.attacking_scorpion < 4:
-            self.direction = Direction.CENTER.value
-        elif AI.generated_scorpion - AI.attacking_scorpion >= 4:
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 4 and AI.enemy_base is not None:
             self.appended_state = 'A'
             AI.state = "Attack"
-            # print ("Attacking")
             AI.attacking_scorpion += 1
             self.attack()
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 4 and AI.enemy_base is None:
+            self.appended_state = 'A'
+            AI.state = "Attack"
+            AI.attacking_scorpion += 1
+            self.explorer()
 
     def attack(self):
         shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
@@ -259,7 +297,7 @@ class AI:
         self.direction = self.find_direction_from_cell(shortest_path[1])
 
     def find_best_neighbour(self, cell):
-        distance, destination = self.manhattan_distance(cell, self.neighbours[0]), self.neighbours[0]
+        distance, destination = math.inf, None
         for neighbour in self.neighbours:
             if self.manhattan_distance(cell, neighbour) < distance:
                 if self.find_shortest_path(self.current_position(), neighbour) is not None:
@@ -336,9 +374,7 @@ class AI:
         return result1 + result2
 
     def generate_single_message(self):
-        
         if AI.played_turns == 0 and self.game.antType == 0:
-            # print("generated")
             AI.generated_scorpion += 1
             self.value = 4
             self.appended_state = 'G'
@@ -375,7 +411,6 @@ class AI:
                 wall_message = wall_message[1:]
 
         return_message += self.appended_state
-        print(return_message)
         return return_message
 
     def generate_messages_of_one_agent(self):
