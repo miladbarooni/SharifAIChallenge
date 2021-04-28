@@ -94,6 +94,7 @@ class AI:
 
     def read_chat_box(self):
         AI.generated_scorpion = 0
+        AI.attacking_scorpion=0
         self.chat_box = list()
         chats = self.game.chatBox.allChats
         for chat in chats:
@@ -167,7 +168,8 @@ class AI:
                             all_resources.append(cell)
             all_neighbours_path = list()
             for cell in all_resources:
-                all_neighbours_path.append(self.find_shortest_path(self.current_position(), self.find_best_neighbour(cell)))
+                all_neighbours_path.append(
+                    self.find_shortest_path(self.current_position(), self.find_best_neighbour(cell)))
             if all_neighbours_path:
                 shortest_path = all_neighbours_path[0]
                 for path in all_neighbours_path:
@@ -313,26 +315,30 @@ class AI:
         return resource_cell[0]
 
     def soldier(self):
-        if AI.state == "Attack" and AI.enemy_base is None:
-            self.explorer()
-            self.appended_state = 'A'
-            return
-        if AI.state == "Attack":
-            self.attack()
-            self.appended_state = 'A'
-            return
-        if AI.generated_scorpion - AI.attacking_scorpion < 3:
-            self.direction = Direction.CENTER.value
-        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is not None:
-            self.appended_state = 'A'
-            AI.state = "Attack"
-            AI.attacking_scorpion += 1
-            self.attack()
-        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is None:
-            self.appended_state = 'A'
-            AI.state = "Attack"
-            AI.attacking_scorpion += 1
-            self.explorer()
+        if self.previous_turn() <= 80:
+            self.defence()
+        else:
+            if AI.enemy_base is None:
+                self.explorer()
+            else:
+                self.attack()
+
+    def defence(self):
+        defenced_list = list()
+        for chat in self.chat_box:
+            if chat[0] == "D":
+                defenced_list.append(int(chat[1:3], int(chat[3:])))
+        print(defenced_list)
+        for row in AI.map:
+            for cell in row:
+                if cell.type == 1 and self.manhattan_distance(cell, AI.map[self.game.baseX][self.game.baseY]) > 4:
+                    if (cell.x, cell.y) not in defenced_list:
+                        path = self.find_shortest_path(self.current_position, cell)
+                        self.direction = self.find_direction_from_cell(path[1])
+                        return
+
+        self.direction = Direction.CENTER.value
+
 
     def attack(self):
         shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
@@ -529,3 +535,37 @@ class AI:
     #         if AI.played_turns == 0 or last_turn == 0:
     #             return self.previous_scorpion_count, self.previous_ant_count + 1
     #     return self.previous_scorpion_count, self.previous_ant_count
+
+
+    ''' def soldier(self):
+        if AI.state == "Attack" and AI.enemy_base is None:
+            self.explorer()
+            self.appended_state = 'A'
+            return
+        if AI.state == "Attack":
+            self.attack()
+            self.appended_state = 'A'
+            return
+        if AI.generated_scorpion - AI.attacking_scorpion < 3 and self.previous_turn() <= 80:
+            self.direction = Direction.CENTER.value
+        elif AI.generated_scorpion - AI.attacking_scorpion < 3 and self.previous_turn() >= 80 and AI.enemy_base is not None:
+            self.appended_state = 'A'
+            AI.state = "Attack"
+            AI.attacking_scorpion += 1
+            self.attack()
+        elif AI.generated_scorpion - AI.attacking_scorpion < 3 and self.previous_turn() >= 80 and AI.enemy_base is None:
+            self.appended_state = 'A'
+            AI.state = "Attack"
+            AI.attacking_scorpion += 1
+            self.explorer()
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is not None:
+            self.appended_state = 'A'
+            AI.state = "Attack"
+            AI.attacking_scorpion += 1
+            self.attack()
+        elif AI.generated_scorpion - AI.attacking_scorpion >= 3 and AI.enemy_base is None:
+            self.appended_state = 'A'
+            AI.state = "Attack"
+            AI.attacking_scorpion += 1
+            self.explorer()
+'''
