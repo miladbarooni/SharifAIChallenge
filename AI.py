@@ -197,17 +197,18 @@ class AI:
                 for cell in row:
                     if cell != 0 :
                         if (cell.x, cell.y) not in AI.explored_path:
-                            if (cell.type == 1 or cell.type==2) and self.manhattan_distance(cell, resource) <= 2:
+                            if (cell.type == 1 or cell.type==2) and self.manhattan_distance(cell, resource) <= 5:
                                 # if cell not in [i[0] for i in AI.candidate_cell] and (
                                 if self.find_shortest_path(self.current_position(), cell) is not None and (cell.x, cell.y) not in AI.seen_candidate_cell:
                                     AI.seen_candidate_cell.append((cell.x, cell.y))
                                     AI.candidate_cell.add((cell, 50))
                         else:
+                            candidate_cell_copy = set(AI.candidate_cell)
                             if (cell.x, cell.y) in AI.seen_candidate_cell:
                                 for seen_cell in AI.candidate_cell:
                                     if (seen_cell[0].x, seen_cell[0].y) == (cell.x, cell.y):
-                                        AI.candidate_cell.remove(seen_cell)
-
+                                        candidate_cell_copy.remove(seen_cell)
+                                AI.candidate_cell = set(candidate_cell_copy)
         for row in AI.map:
             for cell in row:
                 if cell != 0:
@@ -217,12 +218,15 @@ class AI:
                         if self.find_shortest_path(self.current_position(), cell) is not None and (cell.x, cell.y) not in AI.seen_candidate_cell:
                             count_distance = self.manhattan_distance(self.current_position(), cell)
                             AI.candidate_cell.add((cell, 10 + count_distance))
+                            AI.seen_candidate_cell.append((cell.x, cell.y))
                     else:
+                        candidate_cell_copy = set(AI.candidate_cell)
                         if (cell.x, cell.y) in AI.seen_candidate_cell:
                             for seen_cell in AI.candidate_cell:
                                 if (seen_cell[0].x, seen_cell[0].y) == (cell.x, cell.y):
-                                    AI.candidate_cell.remove(seen_cell)
-    
+                                    candidate_cell_copy.remove(seen_cell)
+                            AI.candidate_cell = set(candidate_cell_copy)
+        print (len(AI.candidate_cell))
     
     @staticmethod
     def reverse_direction(direction):
