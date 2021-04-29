@@ -106,7 +106,7 @@ class Map:
         if x < 0:
             x += self.width
         if y < 0:
-            y += self.width
+            y += self.height
         return self.cells[x][y]
 
 
@@ -357,6 +357,8 @@ class CellType(Enum):
     BASE = 0
     EMPTY = 1
     WALL = 2
+    TRAP = 3
+    SWAMP = 4
 
     @staticmethod
     def get_value(string: str):
@@ -394,6 +396,7 @@ class ServerConstants:
     MESSAGE_TYPE_INIT = "3"
     MESSAGE_TYPE_TURN = "4"
     MESSAGE_TYPE_KILL = "7"
+    MESSAGE_TYPE_DUMMY = "8"
 
 
 class AntTeam(Enum):

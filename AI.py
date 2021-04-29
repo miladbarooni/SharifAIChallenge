@@ -122,10 +122,12 @@ class AI:
             AI.plan_path.pop(0)
             return
         if self.game.ant.currentResource.value != 0:
+            AI.state = "carrying"
             shortest_path = self.find_shortest_path(self.current_position(),
                                                     AI.map[self.game.baseX][self.game.baseY])
             self.direction = self.find_direction_from_cell(shortest_path[1])
             return
+        AI.state = "not_carrying"
         all_resources_available = list()
         for row in AI.map:
             for cell in row:
@@ -143,6 +145,7 @@ class AI:
                 AI.plan_path = shortest_path[2:]
             return
         else:
+            AI.state = "not_carrying"
             if len(AI.another_plan_path) > 1:
                 self.direction = self.find_direction_from_cell(AI.another_plan_path[0])
                 AI.another_plan_path.pop(0)
@@ -153,7 +156,7 @@ class AI:
                         AI.candidate_cell.add((cell[0], cell[1] - 5, cell[2]))
                         AI.candidate_cell.remove(cell)
                 AI.seen_candidate_cell.append((AI.another_plan_path[0].x, AI.another_plan_path[0].y))
-            self.find_resource_with_no_path()
+            self.find_candidate_cells()
             candidate_cell_list = list(AI.candidate_cell)
             candidate_cell_list.sort(key=lambda x: x[1])
             candidate_cell_list.reverse()
@@ -169,8 +172,8 @@ class AI:
             self.direction = shortest_path[1]
             AI.another_plan_path = shortest_path[2:]
         self.random_walk()
-
-    def find_resource_with_no_path(self):
+    
+    def find_candidate_cells(self):
         all_resources_available = list()
         for row in AI.map:
             for cell in row:
@@ -178,10 +181,11 @@ class AI:
                     this_path = self.find_shortest_path(self.current_position(), cell)
                     if this_path is None:
                         all_resources_available.append(cell)
+        # needs to change
         for resource in all_resources_available:
             for row in AI.map:
                 for cell in row:
-                    if cell != 0 and cell.type == 1 and self.manhattan_distance(cell, resource) <= 4:
+                    if cell != 0 and (cell.type == 1 or cell.type==2) and self.manhattan_distance(cell, resource) <= 4:
                         if cell not in [i[0] for i in AI.candidate_cell] and (
                                 cell.x, cell.y) not in AI.seen_candidate_cell:
                             AI.candidate_cell.add((cell, 50, 0))
@@ -323,25 +327,41 @@ class AI:
                 self.direction = self.find_direction_from_cell(adjacent_neighbours[0])
 
     def soldier(self):
+        if len(AI.plan_path) >= 1:
+            self.direction = self.find_direction_from_cell(AI.plan_path[0])
+            AI.plan_path.pop(0)
+            return
+        print ("hello soldier")
         if self.previous_turn() <= 80:
+            print ("hello")
             self.defence()
         else:
+ 
             if AI.enemy_base is None:
                 self.explorer()
             else:
                 self.attack()
 
     def defence(self):
+        AI.state = "defence"
+        print ("defence")
         defenced_list = list()
         for chat in self.chat_box:
             if chat[0] == 'D':
                 defenced_list.append(int(chat[1:3], int(chat[3:])))
         for row in AI.map:
             for cell in row:
-                if cell.type == 1 and self.manhattan_distance(cell, AI.map[self.game.baseX][self.game.baseY]) > 4:
+                if  cell.type == 1 and self.manhattan_distance(cell, AI.map[self.game.baseX][self.game.baseY]) <= 4:
                     if (cell.x, cell.y) not in defenced_list:
-                        path = self.find_shortest_path(self.current_position, cell)
+                        
+                        # print (cell.x, cell.y)
+                        path = self.find_shortest_path(self.current_position(), cell)
+                        if path is None:
+                            continue
+                        print ("Here")
                         self.direction = self.find_direction_from_cell(path[1])
+                        if (len(path) >= 2):
+                            AI.plan_path = path[2:] 
                         return
         self.direction = Direction.CENTER.value
 
@@ -376,20 +396,39 @@ class AI:
                 visited.add(front)
 
     def find_neighbours(self, cell):
-        up, down, left, right = list(), list(), list(), list()
-        if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
-                and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:
-            right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
-        if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
-                and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2:
-            left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
-        if AI.map[cell.x][(cell.y + 1) % self.game.mapHeight] != 0 \
-                and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type != 2:
-            down = AI.map[cell.x][(cell.y + 1) % self.game.mapHeight]
-        if AI.map[cell.x][(cell.y - 1) % self.game.mapHeight] != 0 \
-                and AI.map[cell.x][(cell.y - 1) % self.game.mapHeight].type != 2:
-            up = AI.map[cell.x][(cell.y - 1) % self.game.mapHeight]
-        return [direction for direction in [up, down, right, left] if direction != []]
+        if AI.state == "carrying":
+            up, down, left, right = list(), list(), list(), list()
+            if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
+                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2 \
+                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 3:
+                right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
+            if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
+                    and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2 \
+                    and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 3:
+                left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
+            if AI.map[cell.x][(cell.y + 1) % self.game.mapHeight] != 0 \
+                    and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type != 2 \
+                    and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type != 3:
+                down = AI.map[cell.x][(cell.y + 1) % self.game.mapHeight]
+            if AI.map[cell.x][(cell.y - 1) % self.game.mapHeight] != 0 \
+                    and AI.map[cell.x][(cell.y - 1) % self.game.mapHeight].type != 2 \
+                    and AI.map[cell.x][(cell.y - 1) % self.game.mapHeight].type != 3:
+                up = AI.map[cell.x][(cell.y - 1) % self.game.mapHeight]
+            return [direction for direction in [up, down, right, left] if direction != []]
+        else:
+            up, down, left, right = list(), list(), list(), list()
+            if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
+                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:                right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
+            if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
+                    and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2:
+                left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
+            if AI.map[cell.x][(cell.y + 1) % self.game.mapHeight] != 0 \
+                    and AI.map[cell.x][(cell.y + 1) % self.game.mapHeight].type != 2:
+                down = AI.map[cell.x][(cell.y + 1) % self.game.mapHeight]
+            if AI.map[cell.x][(cell.y - 1) % self.game.mapHeight] != 0 \
+                    and AI.map[cell.x][(cell.y - 1) % self.game.mapHeight].type != 2:
+                up = AI.map[cell.x][(cell.y - 1) % self.game.mapHeight]
+            return [direction for direction in [up, down, right, left] if direction != []]
 
     def find_direction_from_cell(self, cell):
         current_x = self.game.ant.currentX
@@ -429,6 +468,9 @@ class AI:
                 if message[1] >= value:
                     value = message[1]
                 AI.past_messages.append(message)
+        if AI.state == "defence" and self.game.antType == 0:
+            value = 5
+            return_message += f'D{"{0:0=2d}".format(AI.plan_path[-1].x)}{"{0:0=2d}".format(AI.plan_path[-1].y)}'
         self.value = value
         return return_message
 
@@ -444,7 +486,12 @@ class AI:
             elif neighbour.type == 2:
                 AI.agent_history.add(
                     (f'W{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 2))
-
+            elif neighbour.type == 3:
+                AI.agent_history.add(
+                    (f'T{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
+            elif neighbour.type == 4:
+                AI.agent_history.add(
+                    (f'S{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 1))
     def random_walk(self):
         neighbours = self.find_neighbours(self.current_position())
         random.shuffle(neighbours)
