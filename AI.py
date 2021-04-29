@@ -67,8 +67,7 @@ class AI:
         for row_counter in range(-1 * self.game.viewDistance, self.game.viewDistance + 1):
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
-                self.neighbours.append(self.game.ant.getNeightbourCell(row_counter % self.game.mapWidth,
-                                                                       column_counter % self.game.mapHeight))
+                self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
 
     def previous_turn(self):
         chats = self.game.chatBox.allChats
@@ -147,44 +146,32 @@ class AI:
             return
         else:
             AI.state = "not_carrying"
-            if len(AI.another_plan_path) >= 1:
+            if len(AI.another_plan_path) > 1:
                 self.direction = self.find_direction_from_cell(AI.another_plan_path[0])
                 AI.another_plan_path.pop(0)
                 return
-            self.worker_explorer()
-            # elif len(AI.another_plan_path) == 1:
-            #     for cell in AI.candidate_cell:
-            #         if cell[0].x == AI.another_plan_path[0].x and cell[0].y == AI.another_plan_path[0].y:
-            #             AI.candidate_cell.add((cell[0], cell[1] - 5, cell[2]))
-            #             AI.candidate_cell.remove(cell)
-            #     AI.seen_candidate_cell.append((AI.another_plan_path[0].x, AI.another_plan_path[0].y))
-            # self.find_candidate_cells()
-            # candidate_cell_list = list(AI.candidate_cell)
-            # candidate_cell_list.sort(key=lambda x: x[1])
-            # candidate_cell_list.reverse()
-            # cell = candidate_cell_list[0]
-            # shortest_path = self.find_shortest_path(self.current_position(), cell[0])
-            # while shortest_path is None:
-            #     candidate_cell_list = candidate_cell_list[1:]
-            #     cell = candidate_cell_list[0]
-            #     shortest_path = self.find_shortest_path(self.current_position(), cell[0])
-            # if len(shortest_path) == 1:
-            #     self.random_walk()
-            #     return
-            # self.direction = shortest_path[1]
-            # AI.another_plan_path = shortest_path[2:]
-        # self.random_walk()
-
-    def worker_explorer(self):
-        self.find_candidate_cells()
-        print("hello")
-        candidate_cell_list = list(AI.candidate_cell)
-        candidate_cell_list.sort(key=lambda x: x[1])
-        candidate_cell_list.reverse()
-        cell = candidate_cell_list[0]
-        shortest_path = self.find_shortest_path(self.current_position(), cell[0])
-        self.direction = self.find_direction_from_cell(shortest_path[1])
-        AI.another_plan_path = shortest_path[2:]
+            elif len(AI.another_plan_path) == 1:
+                for cell in AI.candidate_cell:
+                    if cell[0].x == AI.another_plan_path[0].x and cell[0].y == AI.another_plan_path[0].y:
+                        AI.candidate_cell.add((cell[0], cell[1] - 5, cell[2]))
+                        AI.candidate_cell.remove(cell)
+                AI.seen_candidate_cell.append((AI.another_plan_path[0].x, AI.another_plan_path[0].y))
+            self.find_candidate_cells()
+            candidate_cell_list = list(AI.candidate_cell)
+            candidate_cell_list.sort(key=lambda x: x[1])
+            candidate_cell_list.reverse()
+            cell = candidate_cell_list[0]
+            shortest_path = self.find_shortest_path(self.current_position(), cell[0])
+            while shortest_path is None:
+                candidate_cell_list = candidate_cell_list[1:]
+                cell = candidate_cell_list[0]
+                shortest_path = self.find_shortest_path(self.current_position(), cell[0])
+            if len(shortest_path) == 1:
+                self.random_walk()
+                return
+            self.direction = shortest_path[1]
+            AI.another_plan_path = shortest_path[2:]
+        self.random_walk()
 
     def find_candidate_cells(self):
         all_resources_available = list()
@@ -198,40 +185,19 @@ class AI:
         for resource in all_resources_available:
             for row in AI.map:
                 for cell in row:
-                    if cell != 0:
-                        if (cell.x, cell.y) not in AI.explored_path:
-                            if (cell.type == 1 or cell.type == 2) and self.manhattan_distance(cell, resource) <= 5:
-                                # if cell not in [i[0] for i in AI.candidate_cell] and (
-                                if self.find_shortest_path(self.current_position(), cell) is not None and (
-                                        cell.x, cell.y) not in AI.seen_candidate_cell:
-                                    AI.seen_candidate_cell.append((cell.x, cell.y))
-                                    AI.candidate_cell.add((cell, 50))
-                        else:
-                            candidate_cell_copy = set(AI.candidate_cell)
-                            if (cell.x, cell.y) in AI.seen_candidate_cell:
-                                for seen_cell in AI.candidate_cell:
-                                    if (seen_cell[0].x, seen_cell[0].y) == (cell.x, cell.y):
-                                        candidate_cell_copy.remove(seen_cell)
-                                AI.candidate_cell = set(candidate_cell_copy)
+                    if cell != 0 and (cell.type == 1 or cell.type == 2) and self.manhattan_distance(cell,
+                                                                                                    resource) <= 4:
+                        if cell not in [i[0] for i in AI.candidate_cell] and (
+                                cell.x, cell.y) not in AI.seen_candidate_cell:
+                            AI.candidate_cell.add((cell, 50, 0))
         for row in AI.map:
             for cell in row:
                 if cell != 0:
                     if (cell.x, cell.y) not in AI.explored_path:
-                        # if ((cell.x, cell.y) not in [(i[0].x, i[0].y) for i in AI.candidate_cell]) and (
-                        #         cell.x, cell.y) not in AI.seen_candidate_cell:
-                        if self.find_shortest_path(self.current_position(), cell) is not None and (
+                        if ((cell.x, cell.y) not in [(i[0].x, i[0].y) for i in AI.candidate_cell]) and (
                                 cell.x, cell.y) not in AI.seen_candidate_cell:
                             count_distance = self.manhattan_distance(self.current_position(), cell)
-                            AI.candidate_cell.add((cell, 10 + count_distance))
-                            AI.seen_candidate_cell.append((cell.x, cell.y))
-                    else:
-                        candidate_cell_copy = set(AI.candidate_cell)
-                        if (cell.x, cell.y) in AI.seen_candidate_cell:
-                            for seen_cell in AI.candidate_cell:
-                                if (seen_cell[0].x, seen_cell[0].y) == (cell.x, cell.y):
-                                    candidate_cell_copy.remove(seen_cell)
-                            AI.candidate_cell = set(candidate_cell_copy)
-        print(len(AI.candidate_cell))
+                            AI.candidate_cell.add((cell, 10 + count_distance + self.previous_turn() + 1, 0))
 
     @staticmethod
     def reverse_direction(direction):
@@ -295,7 +261,6 @@ class AI:
     def explorer(self):
         if self.you_are_going_crazy():
             self.random_walk()
-            return
         probabilities = [counter for counter in range(1, 5) for _ in range(60)]
         adjacent_neighbours = self.find_neighbours(self.current_position())
         valid_neighbours = list(adjacent_neighbours)
@@ -317,10 +282,10 @@ class AI:
         all_neighbours = [neighbour for neighbour in self.neighbours if
                           neighbour.x != self.current_position().x and neighbour.y != self.current_position().y]
         for neighbour in all_neighbours:
-            # if self.find_shortest_path(self.current_position(), neighbour) is None or neighbour.type == 2:
-            #     count = self.manhattan_distance(self.current_position(), neighbour)
-            #     probabilities = self.remove_tuple_from_list(self.find_overall_direction_from_cell(neighbour),
-            #                                                 probabilities, count)
+            if self.find_shortest_path(self.current_position(), neighbour) is None or neighbour.type == 2:
+                count = self.manhattan_distance(self.current_position(), neighbour)
+                probabilities = self.remove_tuple_from_list(self.find_overall_direction_from_cell(neighbour),
+                                                            probabilities, count)
             for coordinate in AI.explored_path:
                 if coordinate[0] == neighbour.x and coordinate[1] == neighbour.y:
                     count = self.manhattan_distance(self.current_position(), neighbour)
@@ -333,7 +298,7 @@ class AI:
         if probabilities:
             for i in range(0, 4):
                 if count[i] == max(count):
-                    self.direction = i + 1
+                    self.direction = i
         else:
             all_acceptable_cells = list()
             for row in AI.map:
@@ -424,7 +389,7 @@ class AI:
                 visited.add(front)
 
     def find_neighbours(self, cell):
-        if AI.state == 'carrying':
+        if AI.state == "carrying":
             up, down, left, right = list(), list(), list(), list()
             if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
                     and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2 \
@@ -446,8 +411,8 @@ class AI:
         else:
             up, down, left, right = list(), list(), list(), list()
             if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
-                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:
-                right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
+                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:                right = \
+                AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
             if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
                     and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2:
                 left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
@@ -497,6 +462,9 @@ class AI:
                 if message[1] >= value:
                     value = message[1]
                 AI.past_messages.append(message)
+        if AI.state == "defence" and self.game.antType == 0:
+            value = 5
+            return_message += f'D{"{0:0=2d}".format(AI.plan_path[-1].x)}{"{0:0=2d}".format(AI.plan_path[-1].y)}'
         self.value = value
         return return_message
 
