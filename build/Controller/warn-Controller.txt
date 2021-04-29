@@ -24,7 +24,7 @@ missing module named multiprocessing.BufferTooShort - imported by multiprocessin
 missing module named multiprocessing.AuthenticationError - imported by multiprocessing (top-level), multiprocessing.connection (top-level)
 missing module named _frozen_importlib_external - imported by importlib._bootstrap (delayed), importlib (optional), importlib.abc (optional), zipimport (top-level)
 excluded module named _frozen_importlib - imported by importlib (optional), importlib.abc (optional), zipimport (top-level)
-missing module named nt - imported by shutil (conditional), ntpath (optional), pathlib (conditional), os (delayed, conditional, optional), ctypes (delayed, conditional)
+missing module named nt - imported by os (delayed, conditional, optional), ntpath (optional), shutil (conditional), pathlib (conditional), ctypes (delayed, conditional)
 missing module named _overlapped - imported by asyncio.windows_events (top-level)
 missing module named asyncio.DefaultEventLoopPolicy - imported by asyncio (delayed, conditional), asyncio.events (delayed, conditional)
 missing module named vms_lib - imported by platform (delayed, conditional, optional)
