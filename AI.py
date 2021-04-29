@@ -77,8 +77,8 @@ class AI:
         return 0
 
     def update_map(self):
-        type_dict = {'W': 2, 'R': 1, 'G': 1, 'B': 0}
-        resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2}
+        type_dict = {'T': 3, 'S': 4, 'W': 2, 'R': 1, 'G': 1, 'B': 0}
+        resource_type_dict = {'R': 0, 'G': 1, 'W': 2, 'B': 2, 'T': 2, 'S': 2}
         for chat in self.chat_box:
             if len(chat) % 5 == 1:
                 continue
@@ -331,7 +331,6 @@ class AI:
         if self.previous_turn() <= 80:
             self.defence()
         else:
-
             if AI.enemy_base is None:
                 self.explorer()
             else:
@@ -411,8 +410,8 @@ class AI:
         else:
             up, down, left, right = list(), list(), list(), list()
             if AI.map[(cell.x + 1) % self.game.mapWidth][cell.y] != 0 \
-                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:                right = \
-                AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
+                    and AI.map[(cell.x + 1) % self.game.mapWidth][cell.y].type != 2:
+                right = AI.map[(cell.x + 1) % self.game.mapWidth][cell.y]
             if AI.map[(cell.x - 1) % self.game.mapWidth][cell.y] != 0 \
                     and AI.map[(cell.x - 1) % self.game.mapWidth][cell.y].type != 2:
                 left = AI.map[(cell.x - 1) % self.game.mapWidth][cell.y]
