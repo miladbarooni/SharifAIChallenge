@@ -49,7 +49,6 @@ class AI:
                 AI.health = self.game.healthKargar
         AI.explored_path.append((self.current_position().x, self.current_position().y))
         self.check_health()
-        print (self.ants)
         self.update_neighbour()
         self.check_for_enemy_base()
         self.read_chat_box()
@@ -117,7 +116,6 @@ class AI:
             if chat[0][0] == 'E':
                 AI.map[ord(chat[0][1])][ord(chat[0][2])].resource_type = 2
             if chat[0][0] == 'B':
-                print ("there is a base message")
                 AI.map[ord(chat[0][1])][ord(chat[0][2])].resource_type = 0
                 AI.enemy_base = AI.map[ord(chat[0][1])][ord(chat[0][2])]
 
@@ -519,7 +517,6 @@ class AI:
                     new_path = list(path)
                     if adjacent_neighbour.type == 4:
                         if counter == 3:
-                            print ("entering swamp")
                             counter = 0
                             new_path.append(adjacent_neighbour)
                             continue
@@ -593,7 +590,6 @@ class AI:
         list_message_history = list(AI.agent_history)
         list_message_history.sort(key=lambda item: item[1])
         list_message_history.reverse()
-        # print (list_message_history)
         value = 0
         for message in list_message_history:
             if len(return_message) == 30:
