@@ -18,11 +18,12 @@ class AI:
     is_attacking: bool = False
     purpose_cell: Cell = None
     explored_path: list = list()
-    candidate_cell = set = set()
+    candidate_cell: set = set()
     time_spend_to_find = 0
     plan_path = list()
     another_plan_path = list()
     seen_candidate_cell = list()
+    health : int 
 
     def __init__(self):
         self.game: Game = None
@@ -33,18 +34,25 @@ class AI:
         self.type: str = ''
         self.chat_box: list = list()
         self.appended_state = ''
+        self.ants = []
 
     def turn(self) -> (str, int, int):
         if AI.init:
             AI.map = [[0 for _ in range(self.game.mapHeight)] for _ in range(self.game.mapWidth)]
             AI.our_base = self.current_position()
             AI.init = False
+            AI.enemy_base=None 
             if self.game.antType == 0:
                 AI.state = 'defence'
+                AI.health = self.game.healthSarbaaz
+            if self.game.antType == 1:
+                AI.health = self.game.healthKargar
         AI.explored_path.append((self.current_position().x, self.current_position().y))
+        self.check_health()
+        print (self.ants)
         self.update_neighbour()
-        self.read_chat_box()
         self.check_for_enemy_base()
+        self.read_chat_box()
         self.generate_messages_of_one_agent()
         self.update_map()
         if self.game.antType == 1:
@@ -54,13 +62,18 @@ class AI:
         self.message = self.generate_single_message()
         AI.played_turns += 1
         return self.message, self.value, self.direction
-
-    def check_for_enemy_base(self):
-        if AI.enemy_base is None:
-            for neighbour in self.neighbours:
-                if neighbour.x != self.game.baseX and neighbour.y != self.game.baseY and neighbour.type == 0:
-                    AI.agent_history.add((f'B{"{0:0=2d}".format(neighbour.x)}{"{0:0=2d}".format(neighbour.y)}', 4))
-                    AI.enemy_base = neighbour
+    def check_health(self):
+        pass
+        # if self.game.ant.health < AI.health:
+        #     print ("i'm under Attack")
+        #     self.agent_history.add((f'U{chr(self.current_position().x)}chr({self.current_position().y)}', 4))
+    def check_for_enemy_base(self): 
+        
+        for neighbour in self.neighbours:
+            # print (neighbour.type)
+            if neighbour.type == 0 and (neighbour.x != self.game.baseX or neighbour.y != self.game.baseY):
+                AI.agent_history.add((f'T{chr(neighbour.x)}{chr(neighbour.y)}', 5))
+                AI.enemy_base = neighbour
 
     def update_neighbour(self):
         self.neighbours = list()
@@ -68,6 +81,7 @@ class AI:
             bound = self.game.viewDistance - abs(row_counter)
             for column_counter in range(-1 * bound, bound + 1):
                 self.neighbours.append(self.game.ant.getNeightbourCell(row_counter, column_counter))
+                self.ants.append(self.game.ant.getNeightbourCell(row_counter, column_counter).ants)
 
     def previous_turn(self):
         chats = self.game.chatBox.allChats
@@ -102,6 +116,10 @@ class AI:
         for chat in chat_box_list:
             if chat[0][0] == 'E':
                 AI.map[ord(chat[0][1])][ord(chat[0][2])].resource_type = 2
+            if chat[0][0] == 'B':
+                print ("there is a base message")
+                AI.map[ord(chat[0][1])][ord(chat[0][2])].resource_type = 0
+                AI.enemy_base = AI.map[ord(chat[0][1])][ord(chat[0][2])]
 
     def read_chat_box(self):
         self.chat_box = set()
@@ -120,11 +138,25 @@ class AI:
             self.direction = self.find_direction_from_cell(AI.plan_path[0])
             AI.plan_path.pop(0)
             return
+        if self.previous_turn() >= 100:
+            shortest_path = self.find_shortest_path(self.current_position(), AI.map[self.game.baseX][self.game.baseY])
+            self.direction = self.find_direction_from_cell (shortest_path[1])
+            AI.plan_path = shortest_path[2:]
+            if self.current_position().x == self.game.baseX and self.current_position().y == self.game.baseY:
+                for neighbour in self.neighbours:
+                    if neighbour.type == 1 and neighbour.resource_type != 2:
+                        directions = self.find_shortest_path(self.current_position(), neighbour)
+                        self.direction = self.find_direction_from_cell(directions[1]) 
+                        AI.plan_path = directions[2:]
+            return 
+        
         if self.game.ant.currentResource.value != 0:
             AI.state = "carrying"
             shortest_path = self.find_shortest_path(self.current_position(),
                                                     AI.map[self.game.baseX][self.game.baseY])
-            print (shortest_path[1].x, shortest_path[1].y)
+            if shortest_path is None:
+                AI.state = "not_carrying"
+                shortest_path = self.find_shortest_path(self.current_position(), AI.map[self.game.baseX][self.game.baseY])
             self.direction = self.find_direction_from_cell(shortest_path[1])
             return
         AI.state = "not_carrying"
@@ -152,6 +184,7 @@ class AI:
                 AI.another_plan_path.pop(0)
                 return
             self.worker_explorer()
+
     def worker_explorer(self):
         self.find_candidate_cells()
         candidate_cell_list = list(AI.candidate_cell)
@@ -177,7 +210,7 @@ class AI:
             for row in AI.map:
                 for cell in row:
                     if cell != 0 :
-                        if (cell.type == 1 or cell.type==2) and self.manhattan_distance(cell, resource) <= 2:
+                        if (cell.type == 1 or cell.type==2) and self.manhattan_distance(cell, resource) <= 3:
                             if (cell.x, cell.y) not in AI.explored_path:
                             
                                 # if cell not in [i[0] for i in AI.candidate_cell] and (
@@ -234,7 +267,7 @@ class AI:
         for candidate in AI.candidate_cell:
             for explored in AI.explored_path:
                 if candidate[0].x == explored[0] and candidate[0].y == explored[1]:
-                    candidate = (candidate[0], candidate[1] - 10)
+                    candidate = (candidate[0], candidate[1] - 5)
             
 
     @staticmethod
@@ -363,18 +396,65 @@ class AI:
                 self.direction = self.find_direction_from_cell(adjacent_neighbours[0])
 
     def soldier(self):
-        if self.previous_turn() <= 120:
+        for row in AI.map:
+            for cell in row:
+                if cell != 0 and cell.type == 0 and (cell.x != self.game.baseX or cell.y != self.game.baseY):
+                    AI.enemy_base = cell
+        if len(AI.another_plan_path) >=1 :
+                self.direction = self.find_direction_from_cell(AI.another_plan_path[0])
+                AI.another_plan_path.pop(0)
+                return
+        if self.previous_turn() <= 150:
             self.defence()
         else:
+            
             if AI.enemy_base is None:
-                self.defence()
-                # self.soldier_explorer()
+                self.soldier_explorer()
+                
             else:
                 self.attack()
     def soldier_explorer(self):
-        pass
+        self.find_candidate_cells_soldier()
+        candidate_cell_list = list(AI.candidate_cell)
+        candidate_cell_list.sort(key=lambda x: x[1])
+        candidate_cell_list.reverse()
+        cell = candidate_cell_list[0]
+        shortest_path = self.find_shortest_path(self.current_position(), cell[0])
+        if (len (shortest_path) != 1):
+            self.direction = self.find_direction_from_cell(shortest_path[1])
+            AI.another_plan_path = shortest_path[2:]
+            return 
+        else:
+            self.random_walk()
+    def find_candidate_cells_soldier(self):
+        for row in AI.map:
+            for cell in row:
+                if cell != 0:
+                    if (cell.x, cell.y) not in AI.explored_path:
+                        # if ((cell.x, cell.y) not in [(i[0].x, i[0].y) for i in AI.candidate_cell]) and (
+                        #         cell.x, cell.y) not in AI.seen_candidate_cell:
+                        if cell.type == 1:
+                            if self.find_shortest_path(self.current_position(), cell) is not None and (cell.x, cell.y) not in AI.seen_candidate_cell:
+                                count_distance = self.manhattan_distance(AI.map[self.game.baseX][self.game.baseY], cell)
+                                count_distance2 = self.manhattan_distance(self.current_position(), cell) 
+                                AI.candidate_cell.add((cell, count_distance+count_distance2+(2 * self.previous_turn())))
+                                AI.seen_candidate_cell.append((cell.x, cell.y))
+        for candidate in AI.candidate_cell:
+            for explored in AI.explored_path:
+                if candidate[0].x == explored[0] and candidate[0].y == explored[1]:
+                    candidate = (candidate[0], candidate[1] - 5) 
+    
+    def calculate_enemy_base(self, cell):
+        basex = self.game.baseX
+        basey = self.game.baseY
+        # if basey < self.game.
+    
     def defence(self):
         AI.state = 'defence'
+        if self.previous_turn() is None:
+            turn = 0 
+        else:
+            turn = (self.previous_turn() // 50 ) * 2
         if AI.plan_path:
             self.direction = self.find_direction_from_cell(AI.plan_path.pop(0))
             return
@@ -382,8 +462,9 @@ class AI:
         for row in AI.map:
             for cell in row:
                 if cell != 0 and cell.type == 1 \
-                        and self.manhattan_distance(cell, AI.map[self.game.baseX][self.game.baseY]) <= 4 \
-                        and self.manhattan_distance(self.current_position(), cell) >= 2:
+                        and self.manhattan_distance(cell, AI.map[self.game.baseX][self.game.baseY]) <= 4 + turn \
+                        and self.manhattan_distance(self.current_position(), cell) >= 2 + turn \
+                        and self.find_shortest_path(cell, self.current_position()) is not None:
                     all_accessible_cells.append(cell)
         random.shuffle(all_accessible_cells)
         path = self.find_shortest_path(self.current_position(), all_accessible_cells[0])
@@ -395,10 +476,25 @@ class AI:
         return
 
     def attack(self):
+
         shortest_path = self.find_shortest_path(self.current_position(), AI.enemy_base)
         if shortest_path is None:
-            best_neighbour = self.find_best_neighbour(AI.enemy_base)
-            shortest_path = self.find_shortest_path(self.current_position(), best_neighbour)
+            best = math.inf
+            best_cell = ''
+            for row in AI.map:
+                for cell in row:
+                    if cell.type == 1 and self.manhattan_distance(cell, AI.enemy_base) < best \
+                        and self.find_shortest_path(cell, self.current_position()) is not None:
+                        best = self.manhattan_distance(cell, AI.enemy_base)
+                        best_cell = cell
+            shortest_path = self.find_shortest_path(self.current_position(), best_cell)
+            self.direction = shortest_path[1]
+            AI.plan_path = shortest_path[2:]
+        else:
+            self.direction = shortest_path[1]
+            AI.plan_path = shortest_path[2:]
+
+
         self.direction = self.find_direction_from_cell(shortest_path[1])
 
     def find_best_neighbour(self, cell):
@@ -512,6 +608,8 @@ class AI:
         return return_message
 
     def generate_messages_of_one_agent(self):
+
+        
         for neighbour in self.neighbours:
             if neighbour.type == 1 and (neighbour.resource_type == 0 or neighbour.resource_type == 1):
                 if neighbour.resource_type == 0:
